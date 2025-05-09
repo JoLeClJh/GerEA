@@ -121,22 +121,24 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Guten Tag!'),
+        //title: Text('Guten Tag!'),
       ),
       body: Column(
         children: [
           Padding(
             padding: EdgeInsets.all(12),
-            child: Container(
-              padding: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Always call 112 when life is in danger!',
-                style: TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+            child: Center(
+              child: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Always call 112 when life is in danger!',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ),
@@ -155,6 +157,8 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.black,
+        type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
       ),
     );
