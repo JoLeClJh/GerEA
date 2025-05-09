@@ -504,7 +504,7 @@ class EinstellungenPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Text('Einstellungen', style: TextStyle(fontSize: 24)),
+      child: Text('Einstellungenn', style: TextStyle(fontSize: 24)),
     );
   }
 }
