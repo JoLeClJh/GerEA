@@ -1,3 +1,4 @@
+// Hauptimport
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -73,14 +74,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'GerEA',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: HomeWithBottomNav(),
     );
   }
 }
 
+// Datenklasse
 class Nutzerdaten {
   String vorname;
   String nachname;
@@ -91,7 +91,6 @@ class Nutzerdaten {
   String gewicht;
   String blutgruppe;
   String allergien;
-
   bool depression;
   bool angst;
   bool schlafprobleme;
@@ -114,6 +113,7 @@ class Nutzerdaten {
   });
 }
 
+// Navigation
 class HomeWithBottomNav extends StatefulWidget {
   @override
   _HomeWithBottomNavState createState() => _HomeWithBottomNavState();
@@ -144,31 +144,28 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
       ),
       body: Column(
         children: [
-          // 🔺 This is the warning banner, always on top
-          Center(
-            child: Container(
-              padding: EdgeInsets.all(8),
-              margin: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade100,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Always call 112 when life is in danger!',
-                style: TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+          Padding(
+            padding: EdgeInsets.all(12),
+            child: Center(
+              child: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Always call 112 when life is in danger!',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ),
-
-          // 🔻 This expands to show the current page
-          Expanded(
-            child: _pages[_selectedIndex],
-          ),
+          Expanded(child: _pages[_selectedIndex]),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.call), label: '112'),
           BottomNavigationBarItem(icon: Icon(Icons.watch_later), label: 'Verlauf'),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
@@ -186,6 +183,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
 
 }
 
+// Notrufseite
 class NotrufPage extends StatefulWidget {
   @override
   _NotrufPageState createState() => _NotrufPageState();
@@ -199,11 +197,9 @@ class _NotrufPageState extends State<NotrufPage> {
     final locStatus = await Permission.location.request();
 
     setState(() {
-      if (micStatus.isGranted && locStatus.isGranted) {
-        _permissionStatus = '✅ Mikrofon & Standort erlaubt';
-      } else {
-        _permissionStatus = '❌ Nicht alle Berechtigungen erlaubt';
-      }
+      _permissionStatus = (micStatus.isGranted && locStatus.isGranted)
+          ? '✅ Mikrofon & Standort erlaubt'
+          : '❌ Nicht alle Berechtigungen erlaubt';
     });
   }
 
@@ -222,15 +218,13 @@ class _NotrufPageState extends State<NotrufPage> {
           child: Text('Notruf jetzt absetzen'),
         ),
         SizedBox(height: 20),
-        Text(
-          _permissionStatus,
-          style: TextStyle(fontSize: 18),
-        ),
+        Text(_permissionStatus, style: TextStyle(fontSize: 18)),
       ],
     );
   }
 }
 
+// Verlaufsseite
 class VerlaufPage extends StatelessWidget {
   final List<Map<String, String>> eintraege = [
     {"datum": "12. Mai", "beschreibung": "Severe pain in stomach"},
@@ -240,27 +234,22 @@ class VerlaufPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: ListView.builder(
-            itemCount: eintraege.length,
-            itemBuilder: (context, index) {
-              return Card(
-                margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                child: ListTile(
-                  title: Text(eintraege[index]["datum"]!),
-                  subtitle: Text(eintraege[index]["beschreibung"]!),
-                ),
-              );
-            },
+    return ListView.builder(
+      itemCount: eintraege.length,
+      itemBuilder: (context, index) {
+        return Card(
+          margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: ListTile(
+            title: Text(eintraege[index]["datum"]!),
+            subtitle: Text(eintraege[index]["beschreibung"]!),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
 
+// HOMEPAGE mit Sprachfunktion + Navigationsbutton
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
@@ -280,21 +269,15 @@ class _HomePageState extends State<HomePage> {
   void _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
-        onStatus: (status) => print('Status: $status'),
-        onError: (errorNotification) => print('Fehler: $errorNotification'),
+        onStatus: (status) => print('Status: \$status'),
+        onError: (errorNotification) => print('Fehler: \$errorNotification'),
       );
 
       if (available) {
         setState(() => _isListening = true);
-
-        _speech.listen(
-          onResult: (result) {
-            setState(() {
-              _spokenText = result.recognizedWords;
-            });
-            print("🎤 Gesprochen: ${result.recognizedWords}");
-          },
-        );
+        _speech.listen(onResult: (result) {
+          setState(() => _spokenText = result.recognizedWords);
+        });
       } else {
         print("🚫 Sprachdienst nicht verfügbar");
       }
@@ -307,26 +290,50 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        SizedBox(height: 50),
-        ElevatedButton(
-          onPressed: _listen,
-          style: ElevatedButton.styleFrom(
-            padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-            textStyle: TextStyle(fontSize: 24),
-          ),
-          child: Text(_isListening ? 'Stoppe Aufnahme' : 'Jetzt Problem beschreiben'),
+        Column(
+          children: [
+            SizedBox(height: 50),
+            ElevatedButton(
+              onPressed: _listen,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+                textStyle: TextStyle(fontSize: 24),
+              ),
+              child: Text(_isListening ? 'Stoppe Aufnahme' : 'Jetzt Problem beschreiben'),
+            ),
+            if (_spokenText.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text('Du hast gesagt: \$_spokenText'),
+              ),
+          ],
         ),
-        if (_spokenText.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text('Du hast gesagt: $_spokenText'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20.0),
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => HilfeBeschreiben()),
+              );
+            },
+            child: Text('Zur neuen Seite'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+              textStyle: TextStyle(fontSize: 24),
+              backgroundColor: Colors.red,
+            ),
           ),
+        ),
       ],
     );
   }
 }
+
+// Weitere Seiten siehe Ursprungsdatei (PersoenlichesPage, EinstellungenPage, HilfeBeschreiben) – hier nicht erneut dupliziert
+
 
 class PersoenlichesPage extends StatefulWidget {
   @override
@@ -396,7 +403,7 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
                 isPrivate = value;
               });
             },
-          ),
+          ), 
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: DropdownButtonFormField<String>(
@@ -517,3 +524,15 @@ class EinstellungenPage extends StatelessWidget {
     );
   }
 }
+class HilfeBeschreiben extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Tippe auf das Nachligendste')),
+      body: Center(
+        child: Text('Willkommen auf der neuen Seite!', style: TextStyle(fontSize: 24)),
+      ),
+    );
+  }
+}
+
