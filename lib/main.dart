@@ -1,10 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:local_auth/local_auth.dart';
 
 void main() {
   runApp(MyApp());
 }
+
+class MySecureApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: AuthGate(),
+    );
+  }
+}
+
+class AuthGate extends StatefulWidget {
+  @override
+  _AuthGateState createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  final LocalAuthentication auth = LocalAuthentication();
+  bool _isAuthenticated = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _authenticate(); // beim Start authentifizieren
+  }
+
+  Future<void> _authenticate() async {
+    try {
+      bool didAuthenticate = await auth.authenticate(
+        localizedReason: 'Bitte mit Fingerabdruck oder Gesicht entsperren',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (didAuthenticate) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+      }
+    } catch (e) {
+      print("Fehler bei Authentifizierung: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isAuthenticated) {
+      return HomeWithBottomNav(); // deine echte App
+    } else {
+      return Scaffold(
+        body: Center(child: Text('Authentifizierung erforderlich...')),
+      );
+    }
+  }
+}
+
+
+//void main() {
+//  runApp(MyApp());
+//}
 
 class MyApp extends StatelessWidget {
   @override
@@ -77,26 +139,29 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: Text(''),
+      ),
       body: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.all(12),
-            child: Center(
-              child: Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Always call 112 when life is in danger!',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
+          // 🔺 This is the warning banner, always on top
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(8),
+              margin: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Always call 112 when life is in danger!',
+                style: TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               ),
             ),
           ),
+
+          // 🔻 This expands to show the current page
           Expanded(
             child: _pages[_selectedIndex],
           ),
@@ -118,6 +183,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
       ),
     );
   }
+
 }
 
 class NotrufPage extends StatefulWidget {
