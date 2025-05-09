@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(MyApp());
@@ -22,6 +23,36 @@ class HomeWithBottomNav extends StatefulWidget {
   _HomeWithBottomNavState createState() => _HomeWithBottomNavState();
 }
 
+class VerlaufPage extends StatelessWidget {
+  final List<Map<String, String>> eintraege = [
+    {"datum": "12. Mai", "beschreibung": "Severe pain in stomach"},
+    {"datum": "6. Mai", "beschreibung": "Cut in finger"},
+    {"datum": "4. April", "beschreibung": "Pain while eating"},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            itemCount: eintraege.length,
+            itemBuilder: (context, index) {
+              return Card(
+                margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                child: ListTile(
+                  title: Text(eintraege[index]["datum"]!),
+                  subtitle: Text(eintraege[index]["beschreibung"]!),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
   int _selectedIndex = 2;
   String _permissionStatus = 'Unbekannt';
@@ -29,7 +60,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
   Future<void> _checkPermissions() async {
     final micStatus = await Permission.microphone.request();
     final locStatus = await Permission.location.request();
-//tetst
+
     setState(() {
       if (micStatus.isGranted && locStatus.isGranted) {
         _permissionStatus = '✅ Mikrofon & Standort erlaubt';
