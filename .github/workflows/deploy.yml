@@ -1,0 +1,21 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main  # or 'master' if that's your default branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy HTML site
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages       # Target branch for GitHub Pages
+          folder: web            # Folder with index.html
+          token: ${{ secrets.GITHUB_TOKEN }}
