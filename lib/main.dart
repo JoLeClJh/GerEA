@@ -259,7 +259,7 @@ class VerlaufPage extends StatelessWidget {
             trailing: IconButton(
               icon: Icon(Icons.delete),
               onPressed: () {
-                // Hier könnte eine Löschfunktion implementiert werden
+                
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Eintrag gelöscht')),
                 );
@@ -589,13 +589,254 @@ class EinstellungenPage extends StatelessWidget {
     );
   }
 }
-class HilfeBeschreiben extends StatelessWidget {
+class HilfeBeschreiben extends StatefulWidget {
+  @override
+  _HilfeBeschreibenState createState() => _HilfeBeschreibenState();
+}
+
+class _HilfeBeschreibenState extends State<HilfeBeschreiben> {
+  String selectedCategory = '';
+  Map<String, List<String>> subOptions = {
+    'Schmerzen': ['Kopfschmerzen', 'Bauchschmerzen', 'Brustschmerzen', 'Rückenschmerzen', 'Gelenkschmerzen'],
+    'Verletzungen': ['Schnittwunde', 'Verbrennung', 'Knochenbruch', 'Prellung', 'Verstauchung'],
+    'Atmung': ['Kurzatmigkeit', 'Atemnot', 'Husten', 'Pfeifen beim Atmen'],
+    'Haut': ['Ausschlag', 'Schwellung', 'Rötung', 'Juckreiz'],
+    'Verdauung': ['Übelkeit', 'Erbrechen', 'Durchfall', 'Verstopfung'],
+    'Andere': ['Fieber', 'Schwindel', 'Bewusstlosigkeit', 'Allergische Reaktion']
+  };
+  
+  String selectedSubOption = '';
+  String beschreibung = '';
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Tippe auf das Nachligendste')),
-      body: Center(
-        child: Text('Willkommen auf der neuen Seite!', style: TextStyle(fontSize: 24)),
+      appBar: AppBar(title: Text('Problem beschreiben')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Wähle die Kategorie deines Problems:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemCount: subOptions.keys.length,
+                itemBuilder: (context, index) {
+                  String category = subOptions.keys.elementAt(index);
+                  return ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: selectedCategory == category ? Colors.blue : Colors.grey.shade200,
+                      foregroundColor: selectedCategory == category ? Colors.white : Colors.black,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        selectedCategory = category;
+                        selectedSubOption = '';
+                      });
+                    },
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(_getCategoryIcon(category)),
+                        SizedBox(height: 8),
+                        Text(category, textAlign: TextAlign.center),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (selectedCategory.isNotEmpty) ...[
+              SizedBox(height: 20),
+              Text(
+                'Wähle genauer aus:',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              Container(
+                height: 120,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: subOptions[selectedCategory]?.length ?? 0,
+                  itemBuilder: (context, index) {
+                    String option = subOptions[selectedCategory]![index];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: selectedSubOption == option ? Colors.blue : Colors.grey.shade200,
+                          foregroundColor: selectedSubOption == option ? Colors.white : Colors.black,
+                          minimumSize: Size(120, 100),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            selectedSubOption = option;
+                          });
+                        },
+                        child: Text(option, textAlign: TextAlign.center),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            if (selectedSubOption.isNotEmpty) ...[
+              SizedBox(height: 20),
+              TextField(
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Weitere Beschreibung (optional)',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  beschreibung = value;
+                },
+              ),
+              SizedBox(height: 16),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () {
+
+                  String problem = '$selectedCategory: $selectedSubOption';
+                  if (beschreibung.isNotEmpty) {
+                    problem += ' - $beschreibung';
+                  }
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Problem erfasst: $problem')),
+                  );
+                  
+                  Navigator.push(
+                    context, 
+                    MaterialPageRoute(
+                      builder: (context) => ErgebnisSeite(problem: problem),
+                    )
+                  );
+                },
+                child: Text('Hilfe anfordern', style: TextStyle(fontSize: 18)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Schmerzen': return Icons.sick;
+      case 'Verletzungen': return Icons.healing;
+      case 'Atmung': return Icons.air;
+      case 'Haut': return Icons.personal_injury;
+      case 'Verdauung': return Icons.restaurant;
+      case 'Andere': return Icons.help_outline;
+      default: return Icons.help;
+    }
+  }
+}
+
+class ErgebnisSeite extends StatelessWidget {
+  final String problem;
+  
+  ErgebnisSeite({required this.problem});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Ergebnis')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Dein beschriebenes Problem:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Card(
+              elevation: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(problem, style: TextStyle(fontSize: 16)),
+              ),
+            ),
+            SizedBox(height: 24),
+            Text(
+              'Empfohlene Maßnahmen:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Expanded(
+              child: _getRecommendations(problem),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                minimumSize: Size(double.infinity, 50),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: Text('Zurück zur Auswahl', style: TextStyle(fontSize: 16)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _getRecommendations(String problem) {
+    if (problem.contains('Kopfschmerzen')) {
+      return ListView(
+        children: [
+          _recommendationCard('Trinke ausreichend Wasser', Icons.water_drop),
+          _recommendationCard('Ruhe dich in einem dunklen Raum aus', Icons.nightlight),
+          _recommendationCard('Schmerzmittel (z.B. Ibuprofen) können helfen', Icons.medication),
+          _recommendationCard('Bei anhaltenden Schmerzen: Arzt aufsuchen', Icons.local_hospital),
+        ],
+      );
+    } else if (problem.contains('Verbrennung')) {
+      return ListView(
+        children: [
+          _recommendationCard('Kühle die betroffene Stelle mit kaltem Wasser', Icons.water),
+          _recommendationCard('Keine Salben auf frische Verbrennungen', Icons.do_not_disturb),
+          _recommendationCard('Bei Blasenbildung oder größeren Flächen: Arzt aufsuchen', Icons.local_hospital),
+        ],
+      );
+    }
+    // Standardempfehlungen
+    return ListView(
+      children: [
+        _recommendationCard('Bei anhaltenden Beschwerden suche einen Arzt auf', Icons.local_hospital),
+        _recommendationCard('Achte auf ausreichende Flüssigkeitszufuhr', Icons.water_drop),
+        _recommendationCard('Ruhe und Schonung können helfen', Icons.bed),
+      ],
+    );
+  }
+  
+  Widget _recommendationCard(String text, IconData icon) {
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 8),
+      child: ListTile(
+        leading: Icon(icon, color: Colors.blue),
+        title: Text(text),
       ),
     );
   }
