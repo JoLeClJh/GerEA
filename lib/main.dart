@@ -1,5 +1,6 @@
 // Hauptimport
 import 'package:flutter/material.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:local_auth/local_auth.dart';
@@ -210,7 +211,7 @@ class _NotrufPageState extends State<NotrufPage> {
       children: [
         SizedBox(height: 50),
         ElevatedButton(
-          onPressed: _checkPermissions,
+          onPressed:  _checkPermissions , onLongPress: () => FlutterPhoneDirectCaller.callNumber('1111112121'),
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
             textStyle: TextStyle(fontSize: 24),
@@ -218,7 +219,7 @@ class _NotrufPageState extends State<NotrufPage> {
           child: Text('Notruf jetzt absetzen'),
         ),
         SizedBox(height: 20),
-        Text(_permissionStatus, style: TextStyle(fontSize: 18)),
+        Text("Solltest/sollten gerade du oder andere Menschen in Lebensgafahr sein rufe sofort den Notdienst! Es zählt jede Sekunde!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
       ],
     );
   }
