@@ -1,9 +1,11 @@
-// Hauptimport
+
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:local_auth/local_auth.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 void main() {
   runApp(MyApp());
@@ -15,7 +17,7 @@ class MySecureApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: AuthGate(),
-    );
+    );//a
   }
 }
 
@@ -50,7 +52,7 @@ class _AuthGateState extends State<AuthGate> {
         });
       }
     } catch (e) {
-      print("Fehler bei authentifizierung: $e");
+      print("Fehler bei Authentifizierung: $e");
     }
   }
 
@@ -190,6 +192,33 @@ class NotrufPage extends StatefulWidget {
 
 class _NotrufPageState extends State<NotrufPage> {
   String _permissionStatus = 'Unbekannt';
+  final LocationSettings locationSettings = LocationSettings(
+    accuracy: LocationAccuracy.high,
+    distanceFilter: 100,
+  );
+  Position? position;
+  List<dynamic>? address;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPosition();
+  }
+
+  Future<void> _initPosition() async {
+    position = await Geolocator.getCurrentPosition(locationSettings: locationSettings);
+    if (position != null) {
+      address = await placemarkFromCoordinates(position!.latitude, position!.longitude);
+    }
+    setState(() {});
+  }
+  String get addressString {
+    if (address != null && address!.isNotEmpty) {
+      return '${address![0].street}, ${address![0].locality}, ${address![0].country}';
+    }
+    return 'Unbekannt';
+  }
+  
 
   Future<void> _checkPermissions() async {
     final micStatus = await Permission.microphone.request();
@@ -209,7 +238,16 @@ class _NotrufPageState extends State<NotrufPage> {
       children: [
         SizedBox(height: 50),
         ElevatedButton(
-          onPressed:  _checkPermissions , onLongPress: () => FlutterPhoneDirectCaller.callNumber('1111112121'),
+          onPressed:  (){
+            ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Zum Anrufen länger drücken!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+          }
+           
+            , onLongPress: () => FlutterPhoneDirectCaller.callNumber('1111112121'),
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
             textStyle: TextStyle(fontSize: 24, color: Colors.black),
@@ -218,8 +256,22 @@ class _NotrufPageState extends State<NotrufPage> {
           ),
           child: Text('Notruf jetzt absetzen', style: TextStyle(color: Colors.black)),
         ),
+        SizedBox(height: 40),
+        ElevatedButton(
+          onPressed: _checkPermissions,
+          child: Text(addressString),
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(horizontal: 25, vertical: 25),
+            textStyle: TextStyle(fontSize: 16, color: Colors.black),
+          ),
+        ),
         SizedBox(height: 20),
         Text("Solltest/sollten gerade du oder andere Menschen in Lebensgafahr sein, rufe sofort den Notdienst! Es zählt jede Sekunde!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        SizedBox(height: 20),
+        Text(
+          _permissionStatus,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
@@ -272,7 +324,6 @@ class VerlaufPage extends StatelessWidget {
   }
 }
 
-// HOMEPAGE mit Sprachfunktion + Navigationsbutton
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();

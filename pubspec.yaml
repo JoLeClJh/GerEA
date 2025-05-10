@@ -40,6 +40,8 @@ dependencies:
   local_auth: ^2.1.6
   flutter_phone_direct_caller: ^2.2.1
   shared_preferences: ^2.5.3
+  geolocator: ^14.0.0
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:
