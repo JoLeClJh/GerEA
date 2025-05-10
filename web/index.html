@@ -1,38 +1,853 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="$FLUTTER_BASE_HREF">
-
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
-
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="gerea">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>gerea</title>
-  <link rel="manifest" href="manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GerEA - Medizinische Notfallhilfe per KI</title>
+    <style>
+        :root {
+            --primary: #007AFF;
+            --secondary: #5AC8FA;
+            --dark: #1C1C1E;
+            --light: #F2F2F7;
+            --danger: #FF3B30;
+            --success: #34C759;
+            --warning: #FF9500;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+        
+        body {
+            background-color: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            position: fixed;
+            width: 100%;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            top: 50px; /* Account for the fixed warning banner */
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo-icon {
+            margin-right: 8px;
+            width: 32px;
+            height: 32px;
+            background-color: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .menu {
+            display: flex;
+            list-style: none;
+        }
+        
+        .menu li {
+            margin-left: 30px;
+        }
+        
+        .menu a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .menu a:hover {
+            color: var(--primary);
+        }
+        
+        .cta-button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .cta-button:hover {
+            background-color: #0062cc;
+            transform: translateY(-2px);
+        }
+        
+        /* Hero Section */
+        .hero {
+            padding-top: 210px; /* Increased to account for the warning banner */
+            padding-bottom: 100px;
+            text-align: center;
+            background: linear-gradient(to bottom, var(--light), #ffffff);
+        }
+        
+        .hero h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+        
+        .hero p {
+            font-size: 22px;
+            color: #555;
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+        
+        .hero-image {
+            max-width: 900px;
+            margin: 40px auto 0;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.12);
+        }
+        
+        .hero-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        /* Features Section */
+        .features {
+            padding: 100px 0;
+            background-color: #ffffff;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-top: 60px;
+        }
+        
+        .feature-card {
+            background-color: var(--light);
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+        
+        .feature-icon {
+            width: 70px;
+            height: 70px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 25px;
+            color: white;
+            font-size: 28px;
+        }
+        
+        .feature-card h3 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card p {
+            color: #666;
+        }
+        
+        .section-heading {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .section-heading h2 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+        
+        .section-heading p {
+            font-size: 18px;
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        /* App Preview Section */
+        .app-preview {
+            padding: 100px 0;
+            background: linear-gradient(to bottom, #ffffff, var(--light));
+            text-align: center;
+        }
+        
+        .device-mockup {
+            margin-top: 60px;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .device {
+            position: relative;
+            width: 280px;
+            margin: 0 15px;
+            transition: transform 0.3s;
+        }
+        
+        .device:hover {
+            transform: translateY(-15px);
+        }
+        
+        .device-frame {
+            width: 100%;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+            background-color: #000;
+            padding: 12px;
+        }
+        
+        .device-screen {
+            border-radius: 30px;
+            overflow: hidden;
+            background: #fff;
+            height: 560px;
+        }
+        
+        .device-screen img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* How It Works Section */
+        .how-it-works {
+            padding: 100px 0;
+            background-color: #ffffff;
+        }
+        
+        .steps {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 60px;
+            position: relative;
+        }
+        
+        .steps::before {
+            content: "";
+            position: absolute;
+            top: 40px;
+            left: 60px;
+            right: 60px;
+            height: 3px;
+            background-color: var(--light);
+            z-index: 0;
+        }
+        
+        .step {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .step-number {
+            width: 80px;
+            height: 80px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .step h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .step p {
+            font-size: 16px;
+            color: #666;
+            max-width: 240px;
+            margin: 0 auto;
+        }
+        
+        /* Call to Action Section */
+        .cta-section {
+            padding: 80px 0;
+            background: linear-gradient(120deg, var(--primary), var(--secondary));
+            color: white;
+            text-align: center;
+        }
+        
+        .cta-section h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        
+        .cta-section p {
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto 30px;
+        }
+        
+        .download-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .download-button {
+            display: flex;
+            align-items: center;
+            background-color: white;
+            color: var(--dark);
+            padding: 12px 25px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: transform 0.3s;
+        }
+        
+        .download-button:hover {
+            transform: translateY(-5px);
+        }
+        
+        .download-button span {
+            font-size: 14px;
+            display: block;
+        }
+        
+        .download-button strong {
+            font-size: 18px;
+        }
+        
+        .download-icon {
+            margin-right: 12px;
+            font-size: 28px;
+        }
+        
+        /* Team Section */
+        .team {
+            padding: 100px 0;
+            background-color: var(--light);
+        }
+        
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 30px;
+            margin-top: 60px;
+        }
+        
+        .team-member {
+            background-color: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s;
+        }
+        
+        .team-member:hover {
+            transform: translateY(-10px);
+        }
+        
+        .member-image {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+        }
+        
+        .member-info {
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .member-info h3 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .member-info p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        /* Footer */
+        footer {
+            background-color: var(--dark);
+            color: white;
+            padding: 60px 0 30px;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .footer-logo {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .footer-column h3 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        .footer-links {
+            list-style: none;
+        }
+        
+        .footer-links li {
+            margin-bottom: 10px;
+        }
+        
+        .footer-links a {
+            color: #aaa;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .footer-links a:hover {
+            color: white;
+        }
+        
+        .footer-bottom {
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            color: #aaa;
+            font-size: 14px;
+        }
+        
+        .social-links {
+            display: flex;
+            margin-top: 20px;
+        }
+        
+        .social-link {
+            width: 36px;
+            height: 36px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .social-link:hover {
+            background-color: var(--primary);
+        }
+        
+        .disclaimer {
+            background-color: var(--warning);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 500;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 200;
+        }
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .team-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .footer-content {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .steps::before {
+                display: none;
+            }
+            
+            .steps {
+                flex-direction: column;
+                gap: 40px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 38px;
+            }
+            
+            .hero p {
+                font-size: 18px;
+            }
+            
+            .device-mockup {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .device {
+                margin: 20px 0;
+            }
+            
+            .download-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .team-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+    <div class="disclaimer">
+        Warnung: Diese App ist nur für Testzwecke bestimmt und sollte nicht in realen Notfällen verwendet werden.   |   Build for the 2025 Hack Club Neighborhood
+    </div>
+    
+    <header>
+        <div class="container">
+            <nav>
+                <div class="logo">
+                    <div class="logo-icon">G</div>
+                    GerEA
+                </div>
+                <ul class="menu">
+                    <li><a href="#features">Funktionen</a></li>
+                    <li><a href="#how-it-works">So funktioniert's</a></li>
+                    <li><a href="#team">Team</a></li>
+                    <li><a href="#contact">Kontakt</a></li>
+                </ul>
+                <button class="cta-button">App herunterladen</button>
+            </nav>
+        </div>
+    </header>
+    
+    <section class="hero">
+        <div class="container">
+            <h1>Medizinische Notfallhilfe.<br>Sofort. Intelligent. Auf Deutsch.</h1>
+            <p>GerEA nutzt künstliche Intelligenz, um in Sekundenschnelle medizinische Notfälle einzuschätzen und erste Hilfsmaßnahmen bereitzustellen.</p>
+            <button class="cta-button">Jetzt testen</button>
+            
+            <div class="hero-image">
+                <!-- <img src="/api/placeholder/900/500" alt="GerEA App Interface"> -->
+            </div>
+        </div>
+    </section>
+    
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-heading">
+                <h2>Entwickelt für deutsche Notfälle</h2>
+                <p>Unsere KI ist speziell für das deutsche Gesundheitssystem und seine spezifischen Anforderungen trainiert.</p>
+            </div>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h3>Schnelle Bewertung</h3>
+                    <p>Erfasst Symptome und klassifiziert Notfälle in Sekunden mit modernster KI-Technologie.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🏥</div>
+                    <h3>Erste-Hilfe-Anleitung</h3>
+                    <p>Klare, schrittweise Anweisungen zur Ersten Hilfe bis professionelle Hilfe eintrifft.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🗺️</div>
+                    <h3>Lokale Ressourcen</h3>
+                    <p>Findet die nächsten Notaufnahmen und medizinischen Einrichtungen in ganz Deutschland.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>KEIN Datenschutz</h3>
+                    <p>NICHT DSGVO-konform mit höchsten keinen Datenschutzstandards für Ihre sensiblen Daten.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>Offline-Modus</h3>
+                    <p>Grundlegende Funktionen auch ohne Internetverbindung verfügbar.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎓</div>
+                    <h3>Medizinisch NICHT geprüft</h3>
+                    <p>KEINE Inhalte wurden von deutschen Ärzten und Notfallexperten überprüft.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="app-preview">
+        <div class="container">
+            <div class="section-heading">
+                <h2>Eine App, die Leben retten kann</h2>
+                <p>Intuitive Oberfläche für schnelle Bedienung, auch in Stresssituationen.</p>
+            </div>
+            
+            <div class="device-mockup">
+                <div class="device">
+                    <div class="device-frame">
+                        <div class="device-screen">
+                            <!-- <img src="/api/placeholder/260/560" alt="GerEA App Screen"> -->
+                            <p>placeholder</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="device">
+                    <div class="device-frame">
+                        <div class="device-screen">
+                            <!-- <img src="/api/placeholder/260/560" alt="GerEA App Screen"> -->
+                            <p>placeholder</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="device">
+                    <div class="device-frame">
+                        <div class="device-screen">
+                            <!-- <img src="/api/placeholder/260/560" alt="GerEA App Screen"> -->
+                            <p>placeholder</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="section-heading">
+                <h2>So funktioniert GerEA</h2>
+                <p>Einfach, schnell und zuverlässig im Notfall.</p>
+            </div>
+            
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <h3>Symptome beschreiben</h3>
+                    <p>Geben Sie die Symptome und den Zustand des Betroffenen ein oder nutzen Sie unser Sprach-Interface.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <h3>KI-Analyse</h3>
+                    <p>Unsere KI wertet die Daten aus und bewertet den Schweregrad des Notfalls.</p>
+                </div>
+                
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <h3>Sofortige Handlungsempfehlung</h3>
+                    <p>Erhalten Sie präzise Erste-Hilfe-Maßnahmen und Informationen zu lokalen Hilfsangeboten.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="cta-section">
+        <div class="container">
+            <h2>Bereit für mehr Sicherheit?</h2>
+            <p>Laden Sie GerEA herunter und testen Sie die App. Hinweis: Derzeit nur für Testzwecke und nicht für echte Notfälle geeignet.</p>
+            
+            <div class="download-buttons">
+                <a href="#" class="download-button">
+                    <div class="download-icon">🍎</div>
+                    <div>
+                        <saan>Download für</span>
+                        <strong>iOS (bald)</strong>
+                    </div>
+                </a>
+                
+                <a href="#" class="download-button">
+                    <div class="download-icon">🤖</div>
+                    <div>
+                        <span>Download für</span>
+                        <strong>Android (bald)</strong>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+    <section class="team" id="team">
+        <div class="container">
+            <div class="section-heading">
+                <h2>Unser Team</h2>
+                <p>Die Personen, welche hinter diesem Projekt stecken.</p>
+            </div>
+            
+            <div class="team-grid">
+                <div class="team-member">
+                    <!-- <img src="/api/placeholder/300/300" alt="Team Member" class="member-image"> -->
+                    <div class="member-info">
+                        <h3>Jonas Winter</h3>
+                        <p>Head Developer</p>
+                    </div>
+                </div>
+                
+                <div class="team-member">
+                    <!-- <img src="/api/placeholder/300/300" alt="Team Member" class="member-image"> -->
+                    <div class="member-info">
+                        <h3>Lenny Sebel</h3>
+                        <p>Head Developer</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="team" id="team">
+        <div class="container">
+            <div class="section-heading">
+                <p>Künstliche Intelligenze, welche uns helfen diese App noch viel besser zu machen.</p>
+            </div>
+            <div class="team-grid">
+                
+                <div class="team-member">
+                    <!-- <img src="/api/placeholder/300/300" alt="Team Member" class="member-image"> -->
+                    <div class="member-info">
+                        <h3>Lucia</h3>
+                        <p>Overall AI Helper</p>
+                    </div>
+                </div>
+                
+                <div class="team-member">
+                    <!-- <img src="/api/placeholder/300/300" alt="Team Member" class="member-image"> -->
+                    <div class="member-info">
+                        <h3>Johanna</h3>
+                        <p>Mental AI Helper</p>
+                    </div>
+                </div>
+
+                <div class="team-member">
+                    <!-- <img src="/api/placeholder/300/300" alt="Team Member" class="member-image"> -->
+                    <div class="member-info">
+                        <h3>Claire</h3>
+                        <p>AI Helper</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <footer id="contact">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-column">
+                    <div class="footer-logo">
+                        <div class="logo-icon">G</div>
+                        GerEA
+                    </div>
+                    <p>GerEA ist ein Projekt für den 2025 Hack Club Neighborhood Hackathon. Diese Anwendung ist derzeit nur für Testzwecke bestimmt.</p>
+                    
+                    <div class="social-links">
+                        <a href="#" class="social-link">📱</a>
+                        <a href="#" class="social-link">💻</a>
+                        <a href="#" class="social-link">📧</a>
+                    </div>
+                </div>
+                
+                <div class="footer-column">
+                    <h3>Links</h3>
+                    <ul class="footer-links">
+                        <li><a href="#features">Funktionen</a></li>
+                        <li><a href="#how-it-works">So funktioniert's</a></li>
+                        <li><a href="#team">Team</a></li>
+                        <li><a href="#contact">Kontakt</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-column">
+                    <h3>Rechtliches</h3>
+                    <ul class="footer-links">
+                        <li><a href="#">Impressum</a></li>
+                        <li><a href="#">Datenschutz</a></li>
+                        <li><a href="#">AGB</a></li>
+                        <li><a href="#">Disclaimer</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-column">
+                    <h3>Kontakt</h3>
+                    <ul class="footer-links">
+                        <li><a href="mailto:info@gerea.de">lenny-spam@outlook.de</a></li>
+                        <li><a href="tel:+4912345678">/</a></li>
+                        <li> Near Frankfurt, Deutschland</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>© 2025 GerEA | Ein Projekt für den <a href="https://neighborhood.hackclub.com/" style="color: var(--primary);">Hack Club Neighborhood</a></p>
+            </div>
+        </div>
+    </footer>
 </body>
 </html>
