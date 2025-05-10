@@ -241,7 +241,7 @@ class _HomePageState extends State<HomePage> {
             if (_spokenText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text('Du hast gesagt: \$_spokenText'),
+                child: Text('Du hast gesagt: ' + _spokenText),
               ),
           ],
         ),
@@ -254,18 +254,18 @@ class _HomePageState extends State<HomePage> {
                 MaterialPageRoute(builder: (context) => HilfeBeschreiben()),
               );
             },
-            child: Text('Zur neuen Seite'),
+            child: Text('Problem beschreiben via Auswahlmenu'),
             style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 30),
               textStyle: TextStyle(fontSize: 24),
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red
             ),
           ),
         ),
-      ],
+      ]
     );
-  }
-}
+  }}
+
 
 // Weitere Seiten siehe Ursprungsdatei (PersoenlichesPage, EinstellungenPage, HilfeBeschreiben) – hier nicht erneut dupliziert
 
@@ -274,7 +274,6 @@ class PersoenlichesPage extends StatefulWidget {
   @override
   _PersoenlichesPageState createState() => _PersoenlichesPageState();
 }
-
 class _PersoenlichesPageState extends State<PersoenlichesPage> {
   bool isPrivate = false;
   String selectedKasse = 'Andere';
@@ -450,6 +449,7 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
     );
   }
 }
+
 
 class EinstellungenPage extends StatelessWidget {
   @override
