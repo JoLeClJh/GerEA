@@ -13,6 +13,8 @@ void main() {
 }
 
 class MySecureApp extends StatelessWidget {
+  const MySecureApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -22,6 +24,8 @@ class MySecureApp extends StatelessWidget {
 }
 
 class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
   @override
   _AuthGateState createState() => _AuthGateState();
 }
@@ -71,6 +75,8 @@ class _AuthGateState extends State<AuthGate> {
 
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -116,6 +122,8 @@ class Nutzerdaten {
 
 // Navigation
 class HomeWithBottomNav extends StatefulWidget {
+  const HomeWithBottomNav({super.key});
+
   @override
   _HomeWithBottomNavState createState() => _HomeWithBottomNavState();
 }
@@ -186,12 +194,15 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
 
 // Notrufseite
 class NotrufPage extends StatefulWidget {
+  const NotrufPage({super.key});
+
   @override
   _NotrufPageState createState() => _NotrufPageState();
 }
 
 class _NotrufPageState extends State<NotrufPage> {
   String _permissionStatus = 'Unbekannt';
+  String _notrufnummer = '112'; // Standard-Nummer für EU
   final LocationSettings locationSettings = LocationSettings(
     accuracy: LocationAccuracy.high,
     distanceFilter: 100,
@@ -226,9 +237,36 @@ class _NotrufPageState extends State<NotrufPage> {
 
     setState(() {
       _permissionStatus = (micStatus.isGranted && locStatus.isGranted)
-          ? '✅ Mikrofon & Standort erlaubt'
-          : '❌ Nicht alle Berechtigungen erlaubt';
+          ? 'Mikrofon & Standort erlaubt'
+          : 'Nicht alle Berechtigungen erlaubt';
     });
+  }
+  Future<void> _getEmergencyNumber() async {
+    try {
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      final countryCode = placemarks.first.isoCountryCode ?? 'EU';
+
+      final emergencyMap = {
+        'DE': '112',
+        'AT': '112',
+        'CH': '112',
+        'FR': '112',
+        'IT': '112',
+        'ES': '112',
+        'US': '911',
+        'CA': '911',
+        'UK': '999',
+        'AU': '000',
+        'IN': '112',
+      };
+
+      setState(() {
+        _notrufnummer = emergencyMap[countryCode] ?? '112';
+      });
+    } catch (e) {
+      print('🌍 Fehler bei Standort/Nation: $e');
+    }
   }
 
   @override
@@ -243,11 +281,14 @@ class _NotrufPageState extends State<NotrufPage> {
       SnackBar(
         content: Text('Zum Anrufen länger drücken!'),
         duration: Duration(seconds: 2),
-      ),
+      ),  
     );
           }
            
-            , onLongPress: () => FlutterPhoneDirectCaller.callNumber('1111112121'),
+            , onLongPress: () async {
+              await _getEmergencyNumber();
+              await FlutterPhoneDirectCaller.callNumber(_notrufnummer + "788");
+            },
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
             textStyle: TextStyle(fontSize: 24, color: Colors.black),
@@ -259,11 +300,11 @@ class _NotrufPageState extends State<NotrufPage> {
         SizedBox(height: 40),
         ElevatedButton(
           onPressed: _checkPermissions,
-          child: Text(addressString),
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.symmetric(horizontal: 25, vertical: 25),
             textStyle: TextStyle(fontSize: 16, color: Colors.black),
           ),
+          child: Text(addressString),
         ),
         SizedBox(height: 20),
         Text("Solltest/sollten gerade du oder andere Menschen in Lebensgafahr sein, rufe sofort den Notdienst! Es zählt jede Sekunde!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
@@ -284,6 +325,8 @@ class VerlaufPage extends StatelessWidget {
     {"datum": "6. Mai", "beschreibung": "Cut in finger"},
     {"datum": "4. April", "beschreibung": "Pain while eating"},
   ];
+
+  VerlaufPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -325,6 +368,8 @@ class VerlaufPage extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
   _HomePageState createState() => _HomePageState();
 }
@@ -353,7 +398,7 @@ class _HomePageState extends State<HomePage> {
           setState(() => _spokenText = result.recognizedWords);
         });
       } else {
-        print("🚫 Sprachdienst nicht verfügbar");
+        print("Sprachdienst nicht verfügbar");
       }
     } else {
       setState(() => _isListening = false);
@@ -380,7 +425,7 @@ class _HomePageState extends State<HomePage> {
             if (_spokenText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text('Du hast gesagt: ' + _spokenText),
+                child: Text('Du hast gesagt: $_spokenText'),
               ),
           ],
         ),
@@ -393,12 +438,12 @@ class _HomePageState extends State<HomePage> {
                 MaterialPageRoute(builder: (context) => HilfeBeschreiben()),
               );
             },
-            child: Text('Problem beschreiben via Auswahlmenu'),
             style: ElevatedButton.styleFrom(
               padding: EdgeInsets.symmetric(horizontal: 30, vertical: 30),
               textStyle: TextStyle(fontSize: 24),
               backgroundColor: Colors.red
             ),
+            child: Text('Problem beschreiben via Auswahlmenu'),
           ),
         ),
       ]
@@ -409,6 +454,8 @@ class _HomePageState extends State<HomePage> {
 
 
 class PersoenlichesPage extends StatefulWidget {
+  const PersoenlichesPage({super.key});
+
   @override
   _PersoenlichesPageState createState() => _PersoenlichesPageState();
 }
@@ -633,6 +680,8 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
 
 
 class EinstellungenPage extends StatelessWidget {
+  const EinstellungenPage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -641,6 +690,8 @@ class EinstellungenPage extends StatelessWidget {
   }
 }
 class HilfeBeschreiben extends StatefulWidget {
+  const HilfeBeschreiben({super.key});
+
   @override
   _HilfeBeschreibenState createState() => _HilfeBeschreibenState();
 }
@@ -716,7 +767,7 @@ class _HilfeBeschreibenState extends State<HilfeBeschreiben> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 16),
-              Container(
+              SizedBox(
                 height: 120,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
@@ -805,7 +856,7 @@ class _HilfeBeschreibenState extends State<HilfeBeschreiben> {
 class ErgebnisSeite extends StatelessWidget {
   final String problem;
   
-  ErgebnisSeite({required this.problem});
+  const ErgebnisSeite({super.key, required this.problem});
   
   @override
   Widget build(BuildContext context) {

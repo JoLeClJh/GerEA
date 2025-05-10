@@ -6,7 +6,6 @@ Thetechuld:
 6.Animationen -
 7.Packet versenden mit Wichtigen Infosa und standort ++
 8. Satelitengestützte Notrufnummern --
-9. Notrufnummern für andere Länder +-
 10.Appsetup +
 11.Hilfeassistent ++
 12. Hausarzt --
