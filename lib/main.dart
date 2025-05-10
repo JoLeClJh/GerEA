@@ -651,4 +651,3 @@ class HilfeBeschreiben extends StatelessWidget {
     );
   }
 }
-
