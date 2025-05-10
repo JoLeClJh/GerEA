@@ -7,6 +7,7 @@ import 'package:local_auth/local_auth.dart';
 
 void main() {
   runApp(MyApp());
+  
 }
 
 class MySecureApp extends StatelessWidget {
@@ -49,14 +50,14 @@ class _AuthGateState extends State<AuthGate> {
         });
       }
     } catch (e) {
-      print("Fehler bei Authentifizierung: $e");
+      print("Fehler bei authentifizierung: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isAuthenticated) {
-      return HomeWithBottomNav(); // deine echte App
+      return MyApp(); 
     } else {
       return Scaffold(
         body: Center(child: Text('Authentifizierung erforderlich...')),
@@ -66,9 +67,6 @@ class _AuthGateState extends State<AuthGate> {
 }
 
 
-//void main() {
-//  runApp(MyApp());
-//}
 
 class MyApp extends StatelessWidget {
   @override
@@ -142,7 +140,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
     return Scaffold(
       appBar: AppBar(
         title: Text(''),
-      ),
+      ),//Mainpage
       body: Column(
         children: [
           Padding(
@@ -214,12 +212,14 @@ class _NotrufPageState extends State<NotrufPage> {
           onPressed:  _checkPermissions , onLongPress: () => FlutterPhoneDirectCaller.callNumber('1111112121'),
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-            textStyle: TextStyle(fontSize: 24),
+            textStyle: TextStyle(fontSize: 24, color: Colors.black),
+            backgroundColor: Colors.red,
+            
           ),
-          child: Text('Notruf jetzt absetzen'),
+          child: Text('Notruf jetzt absetzen', style: TextStyle(color: Colors.black)),
         ),
         SizedBox(height: 20),
-        Text("Solltest/sollten gerade du oder andere Menschen in Lebensgafahr sein rufe sofort den Notdienst! Es zählt jede Sekunde!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+        Text("Solltest/sollten gerade du oder andere Menschen in Lebensgafahr sein, rufe sofort den Notdienst! Es zählt jede Sekunde!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
       ],
     );
   }
@@ -243,6 +243,28 @@ class VerlaufPage extends StatelessWidget {
           child: ListTile(
             title: Text(eintraege[index]["datum"]!),
             subtitle: Text(eintraege[index]["beschreibung"]!),
+            onTap: () => showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('Eintrag Details'),
+                content: Text('Details zu ${eintraege[index]["beschreibung"]} am ${eintraege[index]["datum"]}'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text('Schließen'),
+                  ),
+                ],
+              ),
+            ),
+            trailing: IconButton(
+              icon: Icon(Icons.delete),
+              onPressed: () {
+                // Hier könnte eine Löschfunktion implementiert werden
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Eintrag gelöscht')),
+                );
+              },
+            ),
           ),
         );
       },
@@ -333,14 +355,17 @@ class _HomePageState extends State<HomePage> {
   }}
 
 
-// Weitere Seiten siehe Ursprungsdatei (PersoenlichesPage, EinstellungenPage, HilfeBeschreiben) – hier nicht erneut dupliziert
 
 
 class PersoenlichesPage extends StatefulWidget {
   @override
   _PersoenlichesPageState createState() => _PersoenlichesPageState();
 }
+
 class _PersoenlichesPageState extends State<PersoenlichesPage> {
+  final LocalAuthentication auth = LocalAuthentication();
+  bool _isAuthenticated = false;
+
   bool isPrivate = false;
   String selectedKasse = 'Andere';
   String geschlecht = "Anderes";
@@ -357,7 +382,35 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
   final TextEditingController mentaleNotizenController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _authenticate();
+  }
+
+  Future<void> _authenticate() async {
+    try {
+      bool didAuthenticate = await auth.authenticate(
+        localizedReason: 'Bitte mit Fingerabdruck oder Gesicht entsperren',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: false,
+        ),
+      );
+      if (didAuthenticate) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+      }
+    } catch (e) {
+      print("Fehler bei Authentifizierung: $e");
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_isAuthenticated) {
+      return Center(child: Text('Authentifizierung erforderlich...'));
+    }
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -438,9 +491,20 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
                   decoration: InputDecoration(labelText: 'Gewicht (kg)'),
                   keyboardType: TextInputType.number,
                 ),
-                TextField(
-                  controller: blutgruppeController,
+                DropdownButtonFormField<String>(
+                  value: blutgruppeController.text.isNotEmpty ? blutgruppeController.text : null,
                   decoration: InputDecoration(labelText: 'Blutgruppe'),
+                  items: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+                      .map((String value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          ))
+                      .toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      blutgruppeController.text = newValue;
+                    }
+                  },
                 ),
                 TextField(
                   controller: allergienController,
@@ -536,4 +600,3 @@ class HilfeBeschreiben extends StatelessWidget {
     );
   }
 }
-
