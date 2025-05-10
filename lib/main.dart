@@ -17,7 +17,7 @@ class MySecureApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: AuthGate(),
-    );//a
+    );//AUTH not in use
   }
 }
 
