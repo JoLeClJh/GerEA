@@ -6,89 +6,35 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:local_auth/local_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-
-void main() {
-  runApp(MyApp());
-  
-}
-
-class MySecureApp extends StatelessWidget {
-  const MySecureApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: AuthGate(),
-    );//AUTH not in use
-  }
-}
-
-class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
-
-  @override
-  _AuthGateState createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  final LocalAuthentication auth = LocalAuthentication();
-  bool _isAuthenticated = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _authenticate(); // beim Start authentifizieren
-  }
-
-  Future<void> _authenticate() async {
-    try {
-      bool didAuthenticate = await auth.authenticate(
-        localizedReason: 'Bitte mit Fingerabdruck oder Gesicht entsperren',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
-      );
-
-      if (didAuthenticate) {
-        setState(() {
-          _isAuthenticated = true;
-        });
-      }
-    } catch (e) {
-      print("Fehler bei Authentifizierung: $e");
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isAuthenticated) {
-      return MyApp(); 
-    } else {
-      return Scaffold(
-        body: Center(child: Text('Authentifizierung erforderlich...')),
-      );
-    }
-  }
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final bool isFirstStart = prefs.getBool('isFirstStart') ?? true;
+ 
+  runApp(MyApp(isFirstStart: isFirstStart));
 }
 
 
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
+  final bool isFirstStart;
+ 
+  const MyApp({super.key, this.isFirstStart = false});
+ 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'GerEA',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: HomeWithBottomNav(),
+      home:  HomeWithBottomNav(),
     );
-  }
+  } 
 }
 
-// Datenklasse
-class Nutzerdaten {
+class NutzerdatenModel {
   String vorname;
   String nachname;
   String geschlecht;
@@ -103,7 +49,7 @@ class Nutzerdaten {
   bool schlafprobleme;
   String mentaleNotizen;
 
-  Nutzerdaten({
+  NutzerdatenModel({
     required this.vorname,
     required this.nachname,
     required this.geschlecht,
@@ -153,26 +99,23 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
       ),//Mainpage
       body: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.all(12),
-            child: Center(
-              child: Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'Always call 112 when life is in danger!',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(8),
+            margin: EdgeInsets.only(top: 0, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.shade100,
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+            ),
+            child: Text(
+              'Always call 112 when life is in danger!',
+              style: TextStyle(fontWeight: FontWeight.bold , fontSize: 15),
+              textAlign: TextAlign.center,
             ),
           ),
           Expanded(child: _pages[_selectedIndex]),
         ],
-      ),
+            ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.call), label: '112'),
@@ -182,7 +125,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Einstellungen'),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
+        selectedItemColor: Colors.red,
         unselectedItemColor: Colors.black,
         type: BottomNavigationBarType.fixed,
         onTap: _onItemTapped,
@@ -198,8 +141,12 @@ class NotrufPage extends StatefulWidget {
 
   @override
   _NotrufPageState createState() => _NotrufPageState();
-}
 
+}
+Future<void> _refresh(){
+    return Future.delayed(Duration(seconds: 2), () {
+    });
+  }
 class _NotrufPageState extends State<NotrufPage> {
   String _permissionStatus = 'Unbekannt';
   String _notrufnummer = '112'; // Standard-Nummer für EU
@@ -241,6 +188,12 @@ class _NotrufPageState extends State<NotrufPage> {
           : 'Nicht alle Berechtigungen erlaubt';
     });
   }
+Future<void> _launchUrl(String url) async {
+  final uri = Uri.parse(url);
+  if (!await launchUrl(uri)) {
+    throw Exception('Could not launch $url');
+  }
+}
   Future<void> _getEmergencyNumber() async {
     try {
       final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
@@ -287,7 +240,7 @@ class _NotrufPageState extends State<NotrufPage> {
            
             , onLongPress: () async {
               await _getEmergencyNumber();
-              await FlutterPhoneDirectCaller.callNumber(_notrufnummer + "788");
+              await FlutterPhoneDirectCaller.callNumber(_notrufnummer + "78aa");
             },
           style: ElevatedButton.styleFrom(
             padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
@@ -308,10 +261,20 @@ class _NotrufPageState extends State<NotrufPage> {
         ),
         SizedBox(height: 20),
         Text("Solltest/sollten gerade du oder andere Menschen in Lebensgafahr sein, rufe sofort den Notdienst! Es zählt jede Sekunde!", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-        SizedBox(height: 20),
+        SizedBox(height: 100),
         Text(
           _permissionStatus,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            launchUrl(Uri.parse("https://www.notruf112.bayern.de/5w/index.php"));
+          },
+          style: ElevatedButton.styleFrom(
+            padding: EdgeInsets.symmetric(horizontal: 25, vertical: 25),
+            textStyle: TextStyle(fontSize: 16, color: Colors.black),
+          ),
+          child: Text("Anleitung für Notruf"),
         ),
       ],
     );
@@ -319,50 +282,251 @@ class _NotrufPageState extends State<NotrufPage> {
 }
 
 // Verlaufsseite
-class VerlaufPage extends StatelessWidget {
-  final List<Map<String, String>> eintraege = [
-    {"datum": "12. Mai", "beschreibung": "Severe pain in stomach"},
-    {"datum": "6. Mai", "beschreibung": "Cut in finger"},
-    {"datum": "4. April", "beschreibung": "Pain while eating"},
-  ];
 
+class VerlaufPage extends StatefulWidget {
   VerlaufPage({super.key});
 
   @override
+  _VerlaufPageState createState() => _VerlaufPageState();
+}
+
+class _VerlaufPageState extends State<VerlaufPage> {
+  List<Map<String, dynamic>> eintraege = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries(); // Lädt die gespeicherten Einträge beim Start
+  }
+
+  // Lädt die Einträge aus den SharedPreferences
+  Future<void> _loadEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final entriesJson = prefs.getString('verlauf_eintraege');
+    
+    if (entriesJson != null) {
+      setState(() {
+        final List<dynamic> decodedList = jsonDecode(entriesJson);
+        eintraege = decodedList.map((e) => Map<String, dynamic>.from(e)).toList();
+      });
+    }
+  }
+
+  // Speichert die Einträge in den SharedPreferences
+  Future<void> _saveEntries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final entriesJson = jsonEncode(eintraege);
+    await prefs.setString('verlauf_eintraege', entriesJson);
+  }
+
+  Future<void> _refresh() async {
+    await _loadEntries();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      itemCount: eintraege.length,
-      itemBuilder: (context, index) {
-        return Card(
-          margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: ListTile(
-            title: Text(eintraege[index]["datum"]!),
-            subtitle: Text(eintraege[index]["beschreibung"]!),
-            onTap: () => showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text('Eintrag Details'),
-                content: Text('Details zu ${eintraege[index]["beschreibung"]} am ${eintraege[index]["datum"]}'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text('Schließen'),
-                  ),
-                ],
-              ),
-            ),
-            trailing: IconButton(
-              icon: Icon(Icons.delete),
-              onPressed: () {
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Eintrag gelöscht')),
-                );
-              },
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Verlauf deiner gemeldeten Probleme',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
           ),
-        );
-      },
+          Expanded(
+            child: eintraege.isEmpty
+                ? Center(
+                    child: Text(
+                      'Keine Einträge vorhanden',
+                      style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: eintraege.length,
+                    itemBuilder: (context, index) {
+                      final eintrag = eintraege[index];
+                      return Card(
+                        margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        child: ListTile(
+                          title: Text(eintrag["datum"]!),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(eintrag["beschreibung"] ?? ""),
+                              SizedBox(height: 4),
+                              Text("Stärke: ${eintrag["staerke"] ?? "-"} / 10"),
+                              Text("Häufigkeit: ${eintrag["haeufigkeit"] ?? "-"} / 10"),
+                            ],
+                          ),
+                          onTap: () => showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text('Eintrag Details'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Details zu ${eintrag["beschreibung"]} am ${eintrag["datum"]}'),
+                                  SizedBox(height: 8),
+                                  Text('Stärke der Schmerzen: ${eintrag["staerke"]} / 10'),
+                                  Text('Häufigkeit: ${eintrag["haeufigkeit"]} / 10'),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Text('Schließen'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text('Eintrag löschen?'),
+                                  content: Text('Möchten Sie diesen Eintrag wirklich löschen?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.of(context).pop(),
+                                      child: Text('Abbrechen'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          eintraege.removeAt(index);
+                                          _saveEntries(); // Speichert nach dem Löschen
+                                        });
+                                        Navigator.of(context).pop();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('Eintrag gelöscht')),
+                                        );
+                                      },
+                                      child: Text('Löschen'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.add),
+              label: Text('Neuen Eintrag hinzufügen'),
+              onPressed: () {
+                String beschreibung = "";
+                int staerke = 5;
+                int haeufigkeit = 1;
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return StatefulBuilder(
+                      builder: (context, setStateDialog) {
+                        return AlertDialog(
+                          title: Text('Heutige Beschwerden hinzufügen'),
+                          content: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextField(
+                                  decoration: InputDecoration(hintText: 'Trage hier deine Beschwerden ein'),
+                                  onChanged: (value) {
+                                    beschreibung = value;
+                                  },
+                                ),
+                                SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Text("Stärke:"),
+                                    Expanded(
+                                      child: Slider(
+                                        value: staerke.toDouble(),
+                                        min: 1,
+                                        max: 10,
+                                        divisions: 9,
+                                        label: staerke.toString(),
+                                        onChanged: (value) {
+                                          setStateDialog(() {
+                                            staerke = value.round();
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    Text("$staerke"),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Text("Häufigkeit:"),
+                                    Expanded(
+                                      child: Slider(
+                                        value: haeufigkeit.toDouble(),
+                                        min: 1,
+                                        max: 10,
+                                        divisions: 9,
+                                        label: haeufigkeit.toString(),
+                                        onChanged: (value) {
+                                          setStateDialog(() {
+                                            haeufigkeit = value.round();
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    Text("$haeufigkeit"),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: Text('Abbrechen'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                if (beschreibung.trim().isEmpty) return;
+                                setState(() {
+                                  eintraege.add({
+                                    "datum": "${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}",
+                                    "beschreibung": beschreibung,
+                                    "staerke": staerke,
+                                    "haeufigkeit": haeufigkeit,
+                                  });
+                                  _saveEntries(); // Speichert nach dem Hinzufügen
+                                });
+                                Navigator.of(context).pop();
+                              },
+                              child: Text('Hinzufügen'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                textStyle: TextStyle(fontSize: 16, color: Colors.black),
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          )
+        ],
+      ),
     );
   }
 }
@@ -388,8 +552,8 @@ class _HomePageState extends State<HomePage> {
   void _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
-        onStatus: (status) => print('Status: \$status'),
-        onError: (errorNotification) => print('Fehler: \$errorNotification'),
+        onStatus: (status) => print('Status: $status'),
+        onError: (errorNotification) => print('Fehler: $errorNotification'),
       );
 
       if (available) {
@@ -418,14 +582,21 @@ class _HomePageState extends State<HomePage> {
               onPressed: _listen,
               style: ElevatedButton.styleFrom(
                 padding: EdgeInsets.symmetric(horizontal: 40, vertical: 40),
-                textStyle: TextStyle(fontSize: 24),
+                textStyle: TextStyle(fontSize: 24, color: Colors.black),
+                foregroundColor: Colors.black,
               ),
-              child: Text(_isListening ? 'Stoppe Aufnahme' : 'Jetzt Problem beschreiben'),
+              child: Text(
+                _isListening ? 'Stoppe Aufnahme' : 'Jetzt Problem beschreiben',
+                style: TextStyle(color: Colors.black),
+              ),
             ),
             if (_spokenText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: Text('Du hast gesagt: $_spokenText'),
+                child: Text(
+                  'Du hast gesagt: $_spokenText',
+                  style: TextStyle(color: Colors.black),
+                ),
               ),
           ],
         ),
@@ -440,24 +611,114 @@ class _HomePageState extends State<HomePage> {
             },
             style: ElevatedButton.styleFrom(
               padding: EdgeInsets.symmetric(horizontal: 30, vertical: 30),
-              textStyle: TextStyle(fontSize: 24),
-              backgroundColor: Colors.red
+              textStyle: TextStyle(fontSize: 24, color: Colors.black),
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.black,
             ),
-            child: Text('Problem beschreiben via Auswahlmenu'),
+            child: Text(
+              'Problem beschreiben via Auswahlmenu',
+              style: TextStyle(color: Colors.black),
+            ),
           ),
         ),
       ]
     );
-  }}
+  }
+}
+
+
 
 
 
 
 class PersoenlichesPage extends StatefulWidget {
-  const PersoenlichesPage({super.key});
-
   @override
   _PersoenlichesPageState createState() => _PersoenlichesPageState();
+}
+
+class Nutzerdaten {
+  final String vorname;
+  final String nachname;
+  final String geschlecht;
+  final bool istPrivatVersichert;
+  final String krankenkasse;
+  final String groesse;
+  final String gewicht;
+  final String blutgruppe;
+  final String allergien;
+  final bool depression;
+  final bool angst;
+  final bool schlafprobleme;
+  final String mentaleNotizen;
+  final String notfallKontaktName;
+  final String notfallKontaktTelefon;
+  final String notfallKontaktEmail;
+  final bool notfallKontaktBenachrichtigen;
+
+  Nutzerdaten({
+    required this.vorname,
+    required this.nachname,
+    required this.geschlecht,
+    required this.istPrivatVersichert,
+    required this.krankenkasse,
+    required this.groesse,
+    required this.gewicht,
+    required this.blutgruppe,
+    required this.allergien,
+    required this.depression,
+    required this.angst,
+    required this.schlafprobleme,
+    required this.mentaleNotizen,
+    this.notfallKontaktName = '',
+    this.notfallKontaktTelefon = '',
+    this.notfallKontaktEmail = '',
+    this.notfallKontaktBenachrichtigen = false,
+  });
+
+
+  Map<String, dynamic> toMap() {
+    return {
+      'vorname': vorname,
+      'nachname': nachname,
+      'geschlecht': geschlecht,
+      'istPrivatVersichert': istPrivatVersichert,
+      'krankenkasse': krankenkasse,
+      'groesse': groesse,
+      'gewicht': gewicht,
+      'blutgruppe': blutgruppe,
+      'allergien': allergien,
+      'depression': depression,
+      'angst': angst,
+      'schlafprobleme': schlafprobleme,
+      'mentaleNotizen': mentaleNotizen,
+      'notfallKontaktName': notfallKontaktName,
+      'notfallKontaktTelefon': notfallKontaktTelefon,
+      'notfallKontaktEmail': notfallKontaktEmail,
+      'notfallKontaktBenachrichtigen': notfallKontaktBenachrichtigen,
+    };
+  }
+
+  factory Nutzerdaten.fromMap(Map<String, dynamic> map) {
+    return Nutzerdaten(
+      vorname: map['vorname'] ?? '',
+      nachname: map['nachname'] ?? '',
+      geschlecht: map['geschlecht'] ?? 'Anderes',
+      istPrivatVersichert: map['istPrivatVersichert'] ?? false,
+      krankenkasse: map['krankenkasse'] ?? 'Andere',
+      groesse: map['groesse'] ?? '',
+      gewicht: map['gewicht'] ?? '',
+      blutgruppe: map['blutgruppe'] ?? '',
+      allergien: map['allergien'] ?? '',
+      depression: map['depression'] ?? false,
+      angst: map['angst'] ?? false,
+      schlafprobleme: map['schlafprobleme'] ?? false,
+      mentaleNotizen: map['mentaleNotizen'] ?? '',
+      notfallKontaktName: map['notfallKontaktName'] ?? '',
+      notfallKontaktTelefon: map['notfallKontaktTelefon'] ?? '',
+      notfallKontaktEmail: map['notfallKontaktEmail'] ?? '',
+      notfallKontaktBenachrichtigen: map['notfallKontaktBenachrichtigen'] ?? false,
+    );
+  }
 }
 
 class _PersoenlichesPageState extends State<PersoenlichesPage> {
@@ -470,6 +731,7 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
   bool depression = false;
   bool angst = false;
   bool schlafprobleme = false;
+  bool notfallKontaktBenachrichtigen = false;
 
   final TextEditingController vornameController = TextEditingController();
   final TextEditingController nachnameController = TextEditingController();
@@ -478,11 +740,147 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
   final TextEditingController blutgruppeController = TextEditingController();
   final TextEditingController allergienController = TextEditingController();
   final TextEditingController mentaleNotizenController = TextEditingController();
+  
+  // Notfallkontakt Controller
+  final TextEditingController notfallKontaktNameController = TextEditingController();
+  final TextEditingController notfallKontaktTelefonController = TextEditingController();
+  final TextEditingController notfallKontaktEmailController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _authenticate();
+    _authenticate().then((_) {
+      if (_isAuthenticated) {
+        _loadData(); // Lade Daten nach erfolgreicher Authentifizierung
+      }
+    });
+  }
+
+  // Methode zum Laden der Daten aus SharedPreferences
+  Future<void> _loadData() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      setState(() {
+        vornameController.text = prefs.getString('vorname') ?? '';
+        nachnameController.text = prefs.getString('nachname') ?? '';
+        geschlecht = prefs.getString('geschlecht') ?? 'Anderes';
+        isPrivate = prefs.getBool('istPrivatVersichert') ?? false;
+        selectedKasse = prefs.getString('krankenkasse') ?? 'Andere';
+        groesseController.text = prefs.getString('groesse') ?? '';
+        gewichtController.text = prefs.getString('gewicht') ?? '';
+        blutgruppeController.text = prefs.getString('blutgruppe') ?? '';
+        allergienController.text = prefs.getString('allergien') ?? '';
+        depression = prefs.getBool('depression') ?? false;
+        angst = prefs.getBool('angst') ?? false;
+        schlafprobleme = prefs.getBool('schlafprobleme') ?? false;
+        mentaleNotizenController.text = prefs.getString('mentaleNotizen') ?? '';
+        
+        // Notfallkontakt Daten laden
+        notfallKontaktNameController.text = prefs.getString('notfallKontaktName') ?? '';
+        notfallKontaktTelefonController.text = prefs.getString('notfallKontaktTelefon') ?? '';
+        notfallKontaktEmailController.text = prefs.getString('notfallKontaktEmail') ?? '';
+        notfallKontaktBenachrichtigen = prefs.getBool('notfallKontaktBenachrichtigen') ?? false;
+      });
+      
+      print("Daten erfolgreich geladen");
+    } catch (e) {
+      print("Fehler beim Laden der Daten: $e");
+    }
+  }
+
+  // Methode zum Speichern der Daten in SharedPreferences
+  Future<void> _saveData() async {
+    try {
+      final daten = Nutzerdaten(
+        vorname: vornameController.text,
+        nachname: nachnameController.text,
+        geschlecht: geschlecht,
+        istPrivatVersichert: isPrivate,
+        krankenkasse: selectedKasse,
+        groesse: groesseController.text,
+        gewicht: gewichtController.text,
+        blutgruppe: blutgruppeController.text,
+        allergien: allergienController.text,
+        depression: depression,
+        angst: angst,
+        schlafprobleme: schlafprobleme,
+        mentaleNotizen: mentaleNotizenController.text,
+        notfallKontaktName: notfallKontaktNameController.text,
+        notfallKontaktTelefon: notfallKontaktTelefonController.text,
+        notfallKontaktEmail: notfallKontaktEmailController.text,
+        notfallKontaktBenachrichtigen: notfallKontaktBenachrichtigen,
+      );
+      
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Speichere alle Werte
+      await prefs.setString('vorname', daten.vorname);
+      await prefs.setString('nachname', daten.nachname);
+      await prefs.setString('geschlecht', daten.geschlecht);
+      await prefs.setBool('istPrivatVersichert', daten.istPrivatVersichert);
+      await prefs.setString('krankenkasse', daten.krankenkasse);
+      await prefs.setString('groesse', daten.groesse);
+      await prefs.setString('gewicht', daten.gewicht);
+      await prefs.setString('blutgruppe', daten.blutgruppe);
+      await prefs.setString('allergien', daten.allergien);
+      await prefs.setBool('depression', daten.depression);
+      await prefs.setBool('angst', daten.angst);
+      await prefs.setBool('schlafprobleme', daten.schlafprobleme);
+      await prefs.setString('mentaleNotizen', daten.mentaleNotizen);
+      
+      // Notfallkontakt Daten speichern
+      await prefs.setString('notfallKontaktName', daten.notfallKontaktName);
+      await prefs.setString('notfallKontaktTelefon', daten.notfallKontaktTelefon);
+      await prefs.setString('notfallKontaktEmail', daten.notfallKontaktEmail);
+      await prefs.setBool('notfallKontaktBenachrichtigen', daten.notfallKontaktBenachrichtigen);
+      
+      print("Gespeichert: ${daten.vorname}, Notfallkontakt: ${daten.notfallKontaktName}");
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Daten gespeichert')),
+      );
+    } catch (e) {
+      print("Fehler beim Speichern der Daten: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Speichern der Daten')),
+      );
+    }
+  }
+  
+  // Methode zum Senden einer Notfall-E-Mail
+  Future<void> _sendEmergencyEmail() async {
+    try {
+      // Hier würde die E-Mail-Versand-Implementierung erfolgen
+      // Dafür benötigt man ein Package wie flutter_email_sender oder url_launcher
+      // Beispiel-Implementierung mit url_launcher:
+      final Uri emailLaunchUri = Uri(
+        scheme: 'mailto',
+        path: notfallKontaktEmailController.text,
+        queryParameters: {
+          'subject': 'Medizinischer Notfall - ${vornameController.text} ${nachnameController.text}',
+          'body': 'Dies ist eine automatische Benachrichtigung über einen medizinischen Notfall.\n\n'
+              'Patient: ${vornameController.text} ${nachnameController.text}\n'
+              'Blutgruppe: ${blutgruppeController.text}\n'
+              'Allergien: ${allergienController.text}\n'
+              'Bitte kontaktieren Sie umgehend medizinisches Fachpersonal.',
+        },
+      );
+      
+      // Launch-Methode würde hier aufgerufen
+      // await launch(emailLaunchUri.toString());
+      
+      print("Notfall-E-Mail-Link generiert: $emailLaunchUri");
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Notfall-E-Mail würde gesendet werden an: ${notfallKontaktEmailController.text}')),
+      );
+    } catch (e) {
+      print("Fehler beim Erstellen der Notfall-E-Mail: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Erstellen der Notfall-E-Mail')),
+      );
+    }
   }
 
   Future<void> _authenticate() async {
@@ -647,45 +1045,212 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
               maxLines: 3,
             ),
           ),
+          SizedBox(height: 20),
+          Text('Notfallkontakt', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: notfallKontaktNameController,
+                  decoration: InputDecoration(labelText: 'Name des Notfallkontakts'),
+                ),
+                TextField(
+                  controller: notfallKontaktTelefonController,
+                  decoration: InputDecoration(labelText: 'Telefonnummer des Notfallkontakts'),
+                  keyboardType: TextInputType.phone,
+                ),
+                TextField(
+                  controller: notfallKontaktEmailController,
+                  decoration: InputDecoration(labelText: 'E-Mail des Notfallkontakts'),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                SwitchListTile(
+                  title: Text('Notfallkontakt per E-Mail benachrichtigen'),
+                  value: notfallKontaktBenachrichtigen,
+                  onChanged: (bool value) {
+                    setState(() {
+                      notfallKontaktBenachrichtigen = value;
+                    });
+                  },
+                ),
+                if (notfallKontaktBenachrichtigen && notfallKontaktEmailController.text.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        _sendEmergencyEmail();
+                      },
+                      icon: Icon(Icons.email),
+                      label: Text('Test-Notfall-E-Mail senden'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
-              final daten = Nutzerdaten(
-                vorname: vornameController.text,
-                nachname: nachnameController.text,
-                geschlecht: geschlecht,
-                istPrivatVersichert: isPrivate,
-                krankenkasse: selectedKasse,
-                groesse: groesseController.text,
-                gewicht: gewichtController.text,
-                blutgruppe: blutgruppeController.text,
-                allergien: allergienController.text,
-                depression: depression,
-                angst: angst,
-                schlafprobleme: schlafprobleme,
-                mentaleNotizen: mentaleNotizenController.text,
-              );
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Daten gespeichert')),
-              );
-              print("Gespeichert: ${daten.vorname}, Mentale Notiz: ${daten.mentaleNotizen}");
+              _saveData(); // Verwende die neue Speichermethode
             },
-            child: Text('Speichern'),
+            child: Text('Alle Daten speichern'),
           ),
+          SizedBox(height: 20),
         ],
       ),
     );
   }
 }
 
-
-class EinstellungenPage extends StatelessWidget {
+class EinstellungenPage extends StatefulWidget {
   const EinstellungenPage({super.key});
 
   @override
+  _EinstellungenPageState createState() => _EinstellungenPageState();
+}
+
+class _EinstellungenPageState extends State<EinstellungenPage> {
+  bool _isDeleting = false;
+
+  Future<void> _deleteAllData() async {
+    setState(() {
+      _isDeleting = true;
+    });
+
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      await prefs.remove('vorname');
+      await prefs.remove('nachname');
+      await prefs.remove('geschlecht');
+      await prefs.remove('istPrivatVersichert');
+      await prefs.remove('krankenkasse');
+      await prefs.remove('groesse');
+      await prefs.remove('gewicht');
+      await prefs.remove('blutgruppe');
+      await prefs.remove('allergien');
+      await prefs.remove('depression');
+      await prefs.remove('angst');
+      await prefs.remove('schlafprobleme');
+      await prefs.remove('mentaleNotizen');
+      
+      // Notfallkontakt Daten löschen
+      await prefs.remove('notfallKontaktName');
+      await prefs.remove('notfallKontaktTelefon');
+      await prefs.remove('notfallKontaktEmail');
+      await prefs.remove('notfallKontaktBenachrichtigen');
+      
+      // Verlauf Einträge löschen
+      await prefs.remove('verlauf_eintraege');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Alle Daten wurden erfolgreich gelöscht')),
+      );
+    } catch (e) {
+      print("Fehler beim Löschen der Daten: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Löschen der Daten')),
+      );
+    } finally {
+      setState(() {
+        _isDeleting = false;
+      });
+    }
+  }
+
+  void _showDeleteConfirmationDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Alle Daten löschen?'),
+          content: Text(
+            'Diese Aktion löscht alle deine persönlichen Daten, Notfallkontakte und den Verlauf. '
+            '       Diese Aktion kann nicht rückgängig gemacht werden!',
+            style: TextStyle(color: Colors.red[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Abbrechen'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Löschen', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteAllData();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text('Einstellungen', style: TextStyle(fontSize: 24)),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Einstellungen', 
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 40),
+          
+          // Datenschutz-Sektion
+          Text('Datenschutz und Privatsphäre', 
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 16),
+          
+          // Button zum Löschen aller Daten
+          ElevatedButton.icon(
+            onPressed: _isDeleting ? null : _showDeleteConfirmationDialog,
+            icon: Icon(Icons.delete_forever, color: Colors.white),
+            label: _isDeleting 
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Wird gelöscht...'),
+                  ],
+                )
+              : Text('Alle gespeicherten Daten löschen'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Löscht alle persönlichen Daten, Notfallkontakte und Verlaufseinträge',
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          
+          Divider(height: 40),
+          
+          // Mehr Einstellungs-Optionen
+          // ...
+        ],
+      ),
     );
   }
 }
@@ -917,7 +1482,7 @@ class ErgebnisSeite extends StatelessWidget {
     } else if (problem.contains('Verbrennung')) {
       return ListView(
         children: [
-          _recommendationCard('Kühle die betroffene Stelle mit kaltem Wasser', Icons.water),
+          _recommendationCard('Kühle die betroffene Stelle mit kaltem Waaser', Icons.water),
           _recommendationCard('Keine Salben auf frische Verbrennungen', Icons.do_not_disturb),
           _recommendationCard('Bei Blasenbildung oder größeren Flächen: Arzt aufsuchen', Icons.local_hospital),
         ],
