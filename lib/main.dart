@@ -13,7 +13,7 @@ Future<void> main() async {
   final prefs = await SharedPreferences.getInstance();
   final bool isFirstStart = prefs.getBool('isFirstStart') ?? true;
  
-  runApp(MyApp(isFirstStart: isFirstStart));
+  runApp(MyApp(firstStart: isFirstStart));
 }
 
 
