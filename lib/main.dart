@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -6,83 +5,29 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:local_auth/local_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart'; 
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  //bool firstStart = prefs.getBool('firstStart') ?? true;
+  bool firstStart = true;
+  
+  runApp(MyApp(firstStart: firstStart));
 }
-
-class MySecureApp extends StatelessWidget {
-  const MySecureApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: AuthGate(),
-    );//AUTH not in use
-  }
-}
-
-class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
-
-  @override
-  _AuthGateState createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  final LocalAuthentication auth = LocalAuthentication();
-  bool _isAuthenticated = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _authenticate(); // beim Start authentifizieren
-  }
-
-  Future<void> _authenticate() async {
-    try {
-      bool didAuthenticate = await auth.authenticate(
-        localizedReason: 'Bitte mit Fingerabdruck oder Gesicht entsperren',
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          stickyAuth: true,
-        ),
-      );
-
-      if (didAuthenticate) {
-        setState(() {
-          _isAuthenticated = true;
-        });
-      }
-    } catch (e) {
-      print("Fehler bei Authentifizierung: $e");
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isAuthenticated) {
-      return MyApp(); 
-    } else {
-      return Scaffold(
-        body: Center(child: Text('Authentifizierung erforderlich...')),
-      );
-    }
-  }
-}
-
-
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool firstStart;
+  
+  const MyApp({super.key, required this.firstStart});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'GerEA',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: HomeWithBottomNav(),
+      home: firstStart ? SetupWizard() : HomeWithBottomNav(),
     );
   }
 }
@@ -923,7 +868,6 @@ class ErgebnisSeite extends StatelessWidget {
         ],
       );
     }
-    // Standardempfehlungen
     return ListView(
       children: [
         _recommendationCard('Bei anhaltenden Beschwerden suche einen Arzt auf', Icons.local_hospital),
@@ -941,5 +885,700 @@ class ErgebnisSeite extends StatelessWidget {
         title: Text(text),
       ),
     );
+  }
+}
+
+class SetupWizard extends StatefulWidget {
+  const SetupWizard({super.key});
+
+  @override
+  _SetupWizardState createState() => _SetupWizardState();
+}
+
+class _SetupWizardState extends State<SetupWizard> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+  final int _totalPages = 6; // Increased from 5 to 6
+  
+  // Nutzerdaten
+  String vorname = '';
+  String nachname = '';
+  String geschlecht = "Anderes";
+  bool istPrivatVersichert = false;
+  String krankenkasse = 'Andere';
+  String groesse = '';
+  String gewicht = '';
+  String blutgruppe = '';
+  String allergien = '';
+  bool depression = false;
+  bool angst = false;
+  bool schlafprobleme = false;
+  String mentaleNotizen = '';
+  bool berechtigungMikrofon = false;
+  bool berechtigungStandort = false;
+  bool berechtigungAnrufe = false;
+  bool berechtigungBiometrie = false;
+  
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _checkPermissions() async {
+    final micStatus = await Permission.microphone.request();
+    final locStatus = await Permission.location.request();
+    final phoneStatus = await Permission.phone.request();
+    
+    setState(() {
+      berechtigungMikrofon = micStatus.isGranted;
+      berechtigungStandort = locStatus.isGranted;
+      berechtigungAnrufe = phoneStatus.isGranted;
+    });
+  }
+  
+  Future<void> _finishSetup() async {
+
+    final daten = Nutzerdaten(
+      vorname: vorname,
+      nachname: nachname,
+      geschlecht: geschlecht,
+      istPrivatVersichert: istPrivatVersichert,
+      krankenkasse: krankenkasse,
+      groesse: groesse,
+      gewicht: gewicht,
+      blutgruppe: blutgruppe,
+      allergien: allergien,
+      depression: depression,
+      angst: angst,
+      schlafprobleme: schlafprobleme,
+      mentaleNotizen: mentaleNotizen,
+    );
+    
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('firstStart', false);
+    
+    
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => HomeWithBottomNav())
+    );
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Willkommen bei GerEA'),
+        automaticallyImplyLeading: false,
+      ),
+      body: Column(
+        children: [
+          LinearProgressIndicator(
+            value: (_currentPage + 1) / _totalPages,
+            backgroundColor: Colors.grey[300],
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+          ),
+          Expanded(
+            child: PageView(
+              controller: _pageController,
+              physics: NeverScrollableScrollPhysics(),
+              onPageChanged: (int page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              children: [
+                _buildWillkommensSeite(),
+                _buildPersonlicheDatenSeite(),
+                _buildGesundheitsDatenSeite(),
+                _buildMentaleGesundheitSeite(),
+                _buildNavigationsSeite(), // Add this new page
+                _buildBerechtigungenSeite(),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (_currentPage > 0)
+                  ElevatedButton(
+                    onPressed: _previousPage,
+                    child: Text('Zurück'),
+                  )
+                else
+                  SizedBox(width: 80),
+                Text('${_currentPage + 1}/$_totalPages'),
+                _currentPage < _totalPages - 1
+                    ? ElevatedButton(
+                        onPressed: _nextPage,
+                        child: Text('Weiter'),
+                      )
+                    : ElevatedButton(
+                        onPressed: _finishSetup,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                        ),
+                        child: Text('Fertigstellen'),
+                      ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildWillkommensSeite() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.health_and_safety, size: 80, color: Colors.blue),
+          SizedBox(height: 20),
+          Text(
+            'Willkommen bei GerEA',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Dein persönlicher Gesundheitsassistent in Notfällen',
+            style: TextStyle(fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 30),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  Text(
+                    'Was diese App macht',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    '• Schnelle Hilfe bei medizinischen Problemen\n'
+                    '• Direkter Zugang zu Notrufdiensten\n'
+                    '• Persönliches Gesundheitsprofil für Notfälle\n'
+                    '• Hilfestellung bei alltäglichen Gesundheitsfragen',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 30),
+          Text(
+            'In den nächsten Schritten sammeln wir wichtige Informationen, '
+            'um dir im Notfall besser helfen zu können.',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Deine Daten werden sicher auf deinem Gerät gespeichert.',
+            style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildPersonlicheDatenSeite() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Persönliche Daten',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Warum ist das wichtig?', style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text(
+                    'Im Notfall können diese Daten dem medizinischen Personal helfen, dich schnell zu identifizieren und die richtige Versorgung zu gewährleisten.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Vorname',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              vorname = value;
+            },
+          ),
+          SizedBox(height: 12),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Nachname',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              nachname = value;
+            },
+          ),
+          SizedBox(height: 16),
+          Text('Geschlecht'),
+          DropdownButton<String>(
+            isExpanded: true,
+            value: geschlecht,
+            onChanged: (String? newValue) {
+              setState(() {
+                geschlecht = newValue!;
+              });
+            },
+            items: ['Männlich', 'Weiblich', 'Anderes']
+                .map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 16),
+          SwitchListTile(
+            title: Text(istPrivatVersichert ? 'Privat versichert' : 'Gesetzlich versichert'),
+            value: istPrivatVersichert,
+            onChanged: (bool value) {
+              setState(() {
+                istPrivatVersichert = value;
+              });
+            },
+          ),
+          SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            decoration: InputDecoration(
+              labelText: 'Wähle deine Krankenkasse',
+              border: OutlineInputBorder(),
+            ),
+            value: krankenkasse,
+            onChanged: (String? newValue) {
+              setState(() {
+                krankenkasse = newValue!;
+              });
+            },
+            items: ['AOK', 'TK', 'Barmer', 'DAK', 'HKK', 'Privat', 'Andere']
+                .map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildGesundheitsDatenSeite() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Gesundheitsdaten',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Warum ist das wichtig?', style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text(
+                    'Diese medizinischen Informationen können im Notfall lebensrettend sein. Beispielsweise ist die Blutgruppe bei Transfusionen wichtig, während Allergien Ärzten helfen, gefährliche Medikamente zu vermeiden.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Diese Informationen können im Notfall wichtig sein:',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+          SizedBox(height: 16),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Größe (cm)',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              groesse = value;
+            },
+          ),
+          SizedBox(height: 12),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Gewicht (kg)',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              gewicht = value;
+            },
+          ),
+          SizedBox(height: 16),
+          Text('Blutgruppe (falls bekannt)'),
+          DropdownButton<String>(
+            hint: Text('Bitte wählen'),
+            isExpanded: true,
+            value: blutgruppe.isEmpty ? null : blutgruppe,
+            onChanged: (String? newValue) {
+              setState(() {
+                blutgruppe = newValue ?? '';
+              });
+            },
+            items: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'Unbekannt']
+                .map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 16),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Allergien (durch Komma getrennt)',
+              hintText: 'z.B. Nüsse, Penicillin, Gluten',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              allergien = value;
+            },
+            maxLines: 2,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Hinweis: Du kannst diese Informationen später in deinem Profil ändern.',
+            style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildMentaleGesundheitSeite() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Mentale Gesundheit',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Warum ist das wichtig?', style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text(
+                    'Die psychische Gesundheit ist genauso wichtig wie die körperliche. Diese Informationen helfen uns, dir angemessene Hilfe anzubieten und Rettungskräfte zu informieren, falls bestimmte psychische Bedingungen berücksichtigt werden sollten.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Diese Informationen sind für eine umfassende Betreuung wichtig und werden vertraulich behandelt.',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Leidest du unter einer der folgenden Beschwerden?',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          CheckboxListTile(
+            title: Text("Depressionen"),
+            value: depression,
+            onChanged: (val) {
+              setState(() {
+                depression = val ?? false;
+              });
+            },
+          ),
+          CheckboxListTile(
+            title: Text("Angstzustände"),
+            value: angst,
+            onChanged: (val) {
+              setState(() {
+                angst = val ?? false;
+              });
+            },
+          ),
+          CheckboxListTile(
+            title: Text("Schlafprobleme"),
+            value: schlafprobleme,
+            onChanged: (val) {
+              setState(() {
+                schlafprobleme = val ?? false;
+              });
+            },
+          ),
+          SizedBox(height: 16),
+          TextField(
+            decoration: InputDecoration(
+              labelText: 'Weitere Notizen zur mentalen Gesundheit',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              mentaleNotizen = value;
+            },
+            maxLines: 3,
+          ),
+          SizedBox(height: 16),
+          Text(
+            'Hinweis: Du musst diese Fragen nicht beantworten, wenn du nicht möchtest.',
+            style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildBerechtigungenSeite() {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Berechtigungen',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Warum brauchen wir diese Berechtigungen?', 
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 8),
+                  Text(
+                    'Diese Berechtigungen ermöglichen die Kernfunktionen der App. Ohne sie können wir dir im Notfall nicht optimal helfen. Alle Daten werden sicher und nur für den vorgesehenen Zweck verwendet.',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Für die volle Funktionalität benötigt die App folgende Berechtigungen:',
+            style: TextStyle(fontSize: 16),
+          ),
+          SizedBox(height: 24),
+          _permissionTile(
+            title: 'Mikrofon',
+            subtitle: 'Für die Spracheingabe deiner Beschwerden',
+            granted: berechtigungMikrofon,
+          ),
+          _permissionTile(
+            title: 'Standort',
+            subtitle: 'Um im Notfall deinen Standort an Rettungskräfte übermitteln zu können',
+            granted: berechtigungStandort,
+          ),
+          _permissionTile(
+            title: 'Telefon',
+            subtitle: 'Um im Notfall direkt Anrufe tätigen zu können',
+            granted: berechtigungAnrufe,
+          ),
+          SizedBox(height: 30),
+          Center(
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.security),
+              label: Text('Berechtigungen erteilen'),
+              onPressed: _checkPermissions,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              ),
+            ),
+          ),
+          SizedBox(height: 20),
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  'Du bist fast fertig!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Klicke unten auf "Fertigstellen", um zur App zu gelangen.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _permissionTile({required String title, required String subtitle, required bool granted}) {
+    return ListTile(
+      leading: Icon(
+        granted ? Icons.check_circle : Icons.radio_button_unchecked,
+        color: granted ? Colors.green : Colors.grey,
+      ),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: granted 
+        ? Icon(Icons.done, color: Colors.green)
+        : Icon(Icons.arrow_forward_ios, size: 16),
+    );
+  }
+  
+  Widget _buildNavigationsSeite() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'App Navigation',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'So verwendest du die GerEA App:',
+            style: TextStyle(fontSize: 16),
+          ),
+          SizedBox(height: 20),
+          
+          _navigationFeatureCard(
+            icon: Icons.call,
+            title: '112',
+            description: 'Direkter Zugang zum Notruf mit deinem aktuellen Standort. Ein langer Druck auf den Notruf-Button wählt die Notrufnummer deiner aktuellen Region.'
+          ),
+          
+          _navigationFeatureCard(
+            icon: Icons.watch_later,
+            title: 'Verlauf',
+            description: 'Hier findest du alle deine bisherigen medizinischen Vorfälle und Notfälle chronologisch aufgelistet. Tippe auf einen Eintrag, um Details zu sehen.'
+          ),
+          
+          _navigationFeatureCard(
+            icon: Icons.home,
+            title: 'Home',
+            description: 'Die Hauptseite der App. Hier kannst du Gesundheitsprobleme entweder per Sprachaufnahme oder über das Auswahlmenü beschreiben und erhältst sofort Hilfestellungen.'
+          ),
+          
+          _navigationFeatureCard(
+            icon: Icons.person,
+            title: 'Persönlich',
+            description: 'Verwalte deine persönlichen und medizinischen Daten. Diese Informationen können im Notfall für Rettungskräfte äußerst wichtig sein.'
+          ),
+          
+          _navigationFeatureCard(
+            icon: Icons.settings,
+            title: 'Einstellungen',
+            description: 'Hier kannst du die App nach deinen Wünschen konfigurieren, Berechtigungen verwalten und Hilfe erhalten.'
+          ),
+          
+          SizedBox(height: 20),
+          Center(
+            child: Text(
+              'Du kannst jederzeit zwischen diesen Seiten wechseln, indem du die entsprechenden Icons in der unteren Navigationsleiste antippst.',
+              style: TextStyle(fontStyle: FontStyle.italic),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _navigationFeatureCard({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Card(
+      margin: EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 36, color: Colors.blue),
+            SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 8),
+                  Text(description),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _nextPage() {
+    if (_currentPage < _totalPages - 1) {
+      _pageController.nextPage(
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+  
+  void _previousPage() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 }

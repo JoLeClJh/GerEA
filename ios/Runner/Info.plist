@@ -6,6 +6,8 @@
 	<string>Wir benötigen Zugriff auf das Mikrofon damit wir dir bei den Problemen zuhören können </string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Wir benötigen Zugriff auf deinen Standort um die Hilfe zu dir zu bringen</string>
+	<key>NSPhoneUsageDescription</key>
+	<string>Diese App benötigt Zugriff auf dein Telefon, um im Notfall Anrufe zu tätigen.</string>
 
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
