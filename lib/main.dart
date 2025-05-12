@@ -8,6 +8,10 @@ import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:google_ml_kit/google_ml_kit.dart';
+import 'dart:io';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
@@ -47,6 +51,8 @@ class NutzerdatenModel {
   bool angst;
   bool schlafprobleme;
   String mentaleNotizen;
+  String? organspendeFrontPath;
+  String? organspendeBackPath;
 
   NutzerdatenModel({
     required this.vorname,
@@ -274,6 +280,24 @@ Future<void> _launchUrl(String url) async {
             textStyle: TextStyle(fontSize: 16, color: Colors.black),
           ),
           child: Text("Anleitung für Notruf"),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            final prefs = await SharedPreferences.getInstance();
+            final phone = prefs.getString('notfallKontaktTelefon') ?? '';
+            final vorname = prefs.getString('vorname') ?? '';
+            final nachname = prefs.getString('nachname') ?? '';
+            final blutgruppe = prefs.getString('blutgruppe') ?? '';
+            final allergien = prefs.getString('allergien') ?? '';
+            final message =
+                'NOTFALL! $vorname $nachname benötigt Hilfe. Blutgruppe: $blutgruppe, Allergien: $allergien. Standort: [hier Standort einfügen]';
+            await sendEmergencySms(
+              phoneNumber: phone,
+              message: message,
+              context: context,
+            );
+          },
+          child: Text('Notfall-SMS an Kontakt senden'),
         ),
       ],
     );
@@ -731,6 +755,8 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
   bool angst = false;
   bool schlafprobleme = false;
   bool notfallKontaktBenachrichtigen = false;
+  String? organspendeFrontPath;
+  String? organspendeBackPath;
 
   final TextEditingController vornameController = TextEditingController();
   final TextEditingController nachnameController = TextEditingController();
@@ -780,6 +806,8 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
         notfallKontaktTelefonController.text = prefs.getString('notfallKontaktTelefon') ?? '';
         notfallKontaktEmailController.text = prefs.getString('notfallKontaktEmail') ?? '';
         notfallKontaktBenachrichtigen = prefs.getBool('notfallKontaktBenachrichtigen') ?? false;
+        organspendeFrontPath = prefs.getString('organspendeFrontPath');
+        organspendeBackPath = prefs.getString('organspendeBackPath');
       });
       
       print("Daten erfolgreich geladen");
@@ -1044,6 +1072,20 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
               maxLines: 3,
             ),
           ),
+          // Organspendeausweis
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: OrganspendeAusweisWidget(
+              frontPath: organspendeFrontPath,
+              backPath: organspendeBackPath,
+              onChanged: (front, back) {
+                setState(() {
+                  organspendeFrontPath = front;
+                  organspendeBackPath = back;
+                });
+              },
+            ),
+          ),
           SizedBox(height: 20),
           Text('Notfallkontakt', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           Padding(
@@ -1146,6 +1188,21 @@ class _EinstellungenPageState extends State<EinstellungenPage> {
       // Verlauf Einträge löschen
       await prefs.remove('verlauf_eintraege');
       
+      await prefs.remove('organspendeFrontPath');
+      await prefs.remove('organspendeBackPath');
+
+      // Versuche, die Bilddateien auch physisch zu löschen
+      final frontPath = prefs.getString('organspendeFrontPath');
+      final backPath = prefs.getString('organspendeBackPath');
+      if (frontPath != null) {
+        final file = File(frontPath);
+        if (await file.exists()) await file.delete();
+      }
+      if (backPath != null) {
+        final file = File(backPath);
+        if (await file.exists()) await file.delete();
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Alle Daten wurden erfolgreich gelöscht')),
       );
@@ -1537,6 +1594,8 @@ class _SetupWizardState extends State<SetupWizard> {
   bool berechtigungStandort = false;
   bool berechtigungAnrufe = false;
   bool berechtigungBiometrie = false;
+  String? organspendeFrontPath;
+  String? organspendeBackPath;
   
   @override
   void dispose() {
@@ -1612,7 +1671,8 @@ class _SetupWizardState extends State<SetupWizard> {
                 _buildPersonlicheDatenSeite(),
                 _buildGesundheitsDatenSeite(),
                 _buildMentaleGesundheitSeite(),
-                _buildNavigationsSeite(), // Add this new page
+                _buildOrganspendeAusweisSeite(),
+                _buildNavigationsSeite(),
                 _buildBerechtigungenSeite(),
               ],
             ),
@@ -2183,6 +2243,37 @@ class _SetupWizardState extends State<SetupWizard> {
     );
   }
   
+  Widget _buildOrganspendeAusweisSeite() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Organspendeausweis',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Du kannst deinen Organspendeausweis fotografieren, damit er im Notfall schnell gefunden wird.',
+            style: TextStyle(fontSize: 14),
+          ),
+          SizedBox(height: 16),
+          OrganspendeAusweisWidget(
+            frontPath: organspendeFrontPath,
+            backPath: organspendeBackPath,
+            onChanged: (front, back) {
+              setState(() {
+                organspendeFrontPath = front;
+                organspendeBackPath = back;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _nextPage() {
     if (_currentPage < _totalPages - 1) {
       _pageController.nextPage(
@@ -2199,5 +2290,239 @@ class _SetupWizardState extends State<SetupWizard> {
         curve: Curves.easeInOut,
       );
     }
+  }
+}
+
+
+Future<void> sendEmergencySms({
+  required String phoneNumber,
+  required String message,
+  required BuildContext context,
+}) async {
+  if (phoneNumber.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Keine Notfallnummer hinterlegt!')),
+    );
+    return;
+  }
+  final Uri smsUri = Uri(
+    scheme: 'sms',
+    path: phoneNumber,
+    queryParameters: {'body': message},
+  );
+  if (await canLaunchUrl(smsUri)) {
+    await launchUrl(smsUri);
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('SMS-App konnte nicht geöffnet werden!')),
+    );
+  }
+}
+
+class OrganspendeAusweisWidget extends StatefulWidget {
+  final String? frontPath;
+  final String? backPath;
+  final Function(String? front, String? back) onChanged;
+
+  const OrganspendeAusweisWidget({
+    super.key,
+    required this.frontPath,
+    required this.backPath,
+    required this.onChanged,
+  });
+
+  @override
+  State<OrganspendeAusweisWidget> createState() => _OrganspendeAusweisWidgetState();
+}
+
+class _OrganspendeAusweisWidgetState extends State<OrganspendeAusweisWidget> {
+  String? frontPath;
+  String? backPath;
+  String? frontError;
+  String? backError;
+
+  @override
+  void initState() {
+    super.initState();
+    frontPath = widget.frontPath;
+    backPath = widget.backPath;
+  }
+
+  Future<void> _pickImage(bool isFront) async {
+    var status = await Permission.camera.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kamera-Berechtigung wird benötigt!')),
+      );
+      return;
+    }
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+    if (picked == null) return;
+
+    final isBlurry = await _isImageBlurry(picked.path);
+
+    setState(() {
+      if (isFront) {
+        frontPath = picked.path;
+        frontError = isBlurry ? "Foto ist unscharf, bitte erneut aufnehmen." : null;
+      } else {
+        backPath = picked.path;
+        backError = isBlurry ? "Foto ist unscharf, bitte erneut aufnehmen." : null;
+      }
+    });
+
+    // Save to SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    if (isFront) {
+      await prefs.setString('organspendeFrontPath', picked.path);
+    } else {
+      await prefs.setString('organspendeBackPath', picked.path);
+    }
+
+    widget.onChanged(frontPath, backPath);
+  }
+
+  Future<bool> _isImageBlurry(String path) async {
+    final inputImage = InputImage.fromFilePath(path);
+    final blurDetector = GoogleMlKit.vision.imageLabeler();
+    // For simplicity, use text recognition as a proxy for readability
+    final textDetector = GoogleMlKit.vision.textRecognizer();
+    final result = await textDetector.processImage(inputImage);
+    await textDetector.close();
+    return result.text.trim().isEmpty;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Organspendeausweis", style: TextStyle(fontWeight: FontWeight.bold)),
+        SizedBox(height: 8),
+        Row( 
+          children: [
+            Expanded(
+              child: buildPhotoBox(
+                label: "Vorderseite",
+                path: frontPath,
+                onTap: () => _pickImage(true),
+                error: frontError,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: buildPhotoBox(
+                label: "Rückseite",
+                path: backPath,
+                onTap: () => _pickImage(false),
+                error: backError,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+        Text(
+          "Bitte beide Seiten fotografieren. Die App prüft, ob das Foto lesbar ist.",
+          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+        ),
+      ],
+    );
+  }
+
+  Widget buildPhotoBox({
+    required String label,
+    required String? path,
+    required VoidCallback onTap,
+    String? error,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 140,
+        margin: EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.blue.shade200, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            if (path != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.file(
+                  File(path),
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              )
+            else
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.camera_alt, size: 48, color: Colors.blueGrey),
+                    SizedBox(height: 8),
+                    Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            //Positioned(
+            //  bottom: 8,
+            //  right: 8,
+            //  child: Container(
+            //    decoration: BoxDecoration(
+            //      color: Colors.blue.withOpacity(0.85),
+            //      borderRadius: BorderRadius.circular(20),
+            //    ),
+            //    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            //    child: Row(
+            //      children: [
+            //        Icon(Icons.photo_camera, color: Colors.white, size: 18),
+            //        SizedBox(width: 4),
+            //        Text(
+            //          "Foto aufnehmen",
+            //          style: TextStyle(color: Colors.white, fontSize: 12),
+            //        ),
+            //      ],
+            //    ),
+            //  ),
+            //),
+            if (error != null)
+              Positioned(
+                bottom: 8,
+                left: 8,
+                right: 8,
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.85),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    error,
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
