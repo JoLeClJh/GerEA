@@ -71,7 +71,6 @@ class NutzerdatenModel {
   });
 }
 
-// Navigation
 class HomeWithBottomNav extends StatefulWidget {
   const HomeWithBottomNav({super.key});
 
@@ -101,7 +100,7 @@ class _HomeWithBottomNavState extends State<HomeWithBottomNav> {
     return Scaffold(
       appBar: AppBar(
         title: Text(''),
-      ),//Mainpage
+      ),
       body: Column(
         children: [
           Container(
@@ -304,10 +303,10 @@ Future<void> _launchUrl(String url) async {
   }
 }
 
-// Verlaufsseite
+
 
 class VerlaufPage extends StatefulWidget {
-  VerlaufPage({super.key});
+  const VerlaufPage({super.key});
 
   @override
   _VerlaufPageState createState() => _VerlaufPageState();
@@ -315,14 +314,19 @@ class VerlaufPage extends StatefulWidget {
 
 class _VerlaufPageState extends State<VerlaufPage> {
   List<Map<String, dynamic>> eintraege = [];
-
+  final LocalAuthentication auth = LocalAuthentication();
+  bool _isAuthenticated = false;
+  
   @override
   void initState() {
     super.initState();
-    _loadEntries(); // Lädt die gespeicherten Einträge beim Start
+    _authenticate().then((_) {
+      if (_isAuthenticated) {
+        _loadEntries();
+      }
+    });
   }
 
-  // Lädt die Einträge aus den SharedPreferences
   Future<void> _loadEntries() async {
     final prefs = await SharedPreferences.getInstance();
     final entriesJson = prefs.getString('verlauf_eintraege');
@@ -330,12 +334,15 @@ class _VerlaufPageState extends State<VerlaufPage> {
     if (entriesJson != null) {
       setState(() {
         final List<dynamic> decodedList = jsonDecode(entriesJson);
-        eintraege = decodedList.map((e) => Map<String, dynamic>.from(e)).toList();
+        eintraege = decodedList.map((e) {
+          final entry = Map<String, dynamic>.from(e);
+          entry['bilder'] ??= [];
+          return entry;
+        }).toList();
       });
     }
   }
 
-  // Speichert die Einträge in den SharedPreferences
   Future<void> _saveEntries() async {
     final prefs = await SharedPreferences.getInstance();
     final entriesJson = jsonEncode(eintraege);
@@ -346,8 +353,126 @@ class _VerlaufPageState extends State<VerlaufPage> {
     await _loadEntries();
   }
 
+  Future<void> _authenticate() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final bool authRequired = prefs.getBool('authForHistoryPage') ?? false;
+      
+      if (!authRequired) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+        return;
+      }
+      
+      bool didAuthenticate = await auth.authenticate(
+        localizedReason: 'Bitte entsperren, um deinen Verlauf anzuzeigen',
+        options: AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: false,
+          useErrorDialogs: true,
+        ),
+      );
+      
+      if (didAuthenticate) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+      }
+    } catch (e) {
+      print("Fehler bei Authentifizierung: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Authentifizierung fehlgeschlagen: $e')),
+      );
+    }
+  }
+  
+  Future<void> _addImageToEntry(int index) async {
+    if (index < 0 || index >= eintraege.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ungültiger Eintrag')),
+      );
+      return;
+    }
+
+    final ImagePicker picker = ImagePicker();
+    
+    try {
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+      String base64Image = base64Encode(bytes);
+      
+      setState(() {
+        eintraege[index]['bilder'] ??= [];
+        
+        (eintraege[index]['bilder'] as List).add(base64Image);
+
+        _saveEntries();
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bild hinzugefügt')),
+      );
+    } catch (e) {
+      print("Fehler beim Hinzufügen des Bildes: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Hinzufügen des Bildes')),
+      );
+    }
+  }
+
+  void _showImages(List<dynamic> bilder) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: double.infinity,
+          height: 300,
+          child: bilder.isEmpty
+              ? Center(child: Text('Keine Bilder vorhanden'))
+              : PageView.builder(
+                  itemCount: bilder.length,
+                  itemBuilder: (context, index) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(
+                          child: Image.memory(
+                            base64Decode(bilder[index]),
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        Text('Bild ${index + 1} von ${bilder.length}'),
+                      ],
+                    );
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!_isAuthenticated) {
+      return Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lock, size: 50, color: Colors.grey),
+          SizedBox(height: 16),
+          Text('Authentifizierung erforderlich...'),
+          SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _authenticate,
+            child: Text('Erneut versuchen'),
+          ),
+        ],
+      ));
+    }
+    
     return RefreshIndicator(
       onRefresh: _refresh,
       child: Column(
@@ -371,72 +496,129 @@ class _VerlaufPageState extends State<VerlaufPage> {
                     itemCount: eintraege.length,
                     itemBuilder: (context, index) {
                       final eintrag = eintraege[index];
+                      final List<dynamic>? bilder = eintrag["bilder"] ?? [];
+                      
                       return Card(
                         margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                        child: ListTile(
-                          title: Text(eintrag["datum"]!),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(eintrag["beschreibung"] ?? ""),
-                              SizedBox(height: 4),
-                              Text("Stärke: ${eintrag["staerke"] ?? "-"} / 10"),
-                              Text("Häufigkeit: ${eintrag["haeufigkeit"] ?? "-"} / 10"),
-                            ],
-                          ),
-                          onTap: () => showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: Text('Eintrag Details'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
+                        child: Column(
+                          children: [
+                            ListTile(
+                              title: Text(eintrag["datum"] ?? "Kein Datum"),
+                              subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Details zu ${eintrag["beschreibung"]} am ${eintrag["datum"]}'),
-                                  SizedBox(height: 8),
-                                  Text('Stärke der Schmerzen: ${eintrag["staerke"]} / 10'),
-                                  Text('Häufigkeit: ${eintrag["haeufigkeit"]} / 10'),
+                                  Text(eintrag["beschreibung"] ?? ""),
+                                  SizedBox(height: 4),
+                                  Text("Stärke: ${eintrag["staerke"] ?? "-"} / 10"),
+                                  Text("Häufigkeit: ${eintrag["haeufigkeit"] ?? "-"} / 10"),
+                                  if (bilder != null && bilder.isNotEmpty)
+                                    TextButton.icon(
+                                      icon: Icon(Icons.photo),
+                                      label: Text('${bilder.length} Bild(er) anzeigen'),
+                                      onPressed: () => _showImages(bilder),
+                                    ),
                                 ],
                               ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: Text('Schließen'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete),
-                            onPressed: () {
-                              showDialog(
+                              onTap: () => showDialog(
                                 context: context,
                                 builder: (context) => AlertDialog(
-                                  title: Text('Eintrag löschen?'),
-                                  content: Text('Möchten Sie diesen Eintrag wirklich löschen?'),
+                                  title: Text('Eintrag Details'),
+                                  content: SingleChildScrollView(
+                                    child: Container(
+                                      width: MediaQuery.of(context).size.width * 0.8,
+                                      constraints: BoxConstraints(
+                                        maxHeight: MediaQuery.of(context).size.height * 0.7,
+                                      ),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('Details zu ${eintrag["beschreibung"] ?? "Keine Beschreibung"} am ${eintrag["datum"] ?? "Kein Datum"}'),
+                                          SizedBox(height: 8),
+                                          Text('Stärke der Schmerzen: ${eintrag["staerke"] ?? "-"} / 10'),
+                                          Text('Häufigkeit: ${eintrag["haeufigkeit"] ?? "-"} / 10'),
+                                          SizedBox(height: 16),
+                                          if (bilder != null && bilder.isNotEmpty) ...[
+                                            Text('Bilder:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                            SizedBox(
+                                              height: 200,
+                                              child: ListView.builder(
+                                                scrollDirection: Axis.horizontal,
+                                                itemCount: bilder.length,
+                                                itemBuilder: (context, imgIndex) {
+                                                  return Padding(
+                                                    padding: const EdgeInsets.only(right: 8.0),
+                                                    child: GestureDetector(
+                                                      onTap: () {
+                                                        Navigator.of(context).pop();
+                                                        _showImages(bilder);
+                                                      },
+                                                      child: Image.memory(
+                                                        base64Decode(bilder[imgIndex]),
+                                                        height: 150,
+                                                        width: 150,
+                                                        fit: BoxFit.cover,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                   actions: [
                                     TextButton(
                                       onPressed: () => Navigator.of(context).pop(),
-                                      child: Text('Abbrechen'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          eintraege.removeAt(index);
-                                          _saveEntries(); // Speichert nach dem Löschen
-                                        });
-                                        Navigator.of(context).pop();
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Eintrag gelöscht')),
-                                        );
-                                      },
-                                      child: Text('Löschen'),
+                                      child: Text('Schließen'),
                                     ),
                                   ],
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.camera_alt),
+                                    onPressed: () => _addImageToEntry(index),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete),
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: Text('Eintrag löschen?'),
+                                          content: Text('Möchten Sie diesen Eintrag wirklich löschen?'),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.of(context).pop(),
+                                              child: Text('Abbrechen'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                setState(() {
+                                                  eintraege.removeAt(index);
+                                                  _saveEntries();
+                                                });
+                                                Navigator.of(context).pop();
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(content: Text('Eintrag gelöscht')),
+                                                );
+                                              },
+                                              child: Text('Löschen'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     },
@@ -451,6 +633,8 @@ class _VerlaufPageState extends State<VerlaufPage> {
                 String beschreibung = "";
                 int staerke = 5;
                 int haeufigkeit = 1;
+                List<String> neuesBilder = [];
+                
                 showDialog(
                   context: context,
                   builder: (context) {
@@ -459,57 +643,120 @@ class _VerlaufPageState extends State<VerlaufPage> {
                         return AlertDialog(
                           title: Text('Heutige Beschwerden hinzufügen'),
                           content: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                TextField(
-                                  decoration: InputDecoration(hintText: 'Trage hier deine Beschwerden ein'),
-                                  onChanged: (value) {
-                                    beschreibung = value;
-                                  },
-                                ),
-                                SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Text("Stärke:"),
-                                    Expanded(
-                                      child: Slider(
-                                        value: staerke.toDouble(),
-                                        min: 1,
-                                        max: 10,
-                                        divisions: 9,
-                                        label: staerke.toString(),
-                                        onChanged: (value) {
-                                          setStateDialog(() {
-                                            staerke = value.round();
-                                          });
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: MediaQuery.of(context).size.width * 0.8,
+                                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextField(
+                                    decoration: InputDecoration(hintText: 'Trage hier deine Beschwerden ein'),
+                                    onChanged: (value) {
+                                      beschreibung = value;
+                                    },
+                                  ),
+                                  SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Text("Stärke:"),
+                                      Expanded(
+                                        child: Slider(
+                                          value: staerke.toDouble(),
+                                          min: 1,
+                                          max: 10,
+                                          divisions: 9,
+                                          label: staerke.toString(),
+                                          onChanged: (value) {
+                                            setStateDialog(() {
+                                              staerke = value.round();
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                      Text("$staerke"),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text("Häufigkeit:"),
+                                      Expanded(
+                                        child: Slider(
+                                          value: haeufigkeit.toDouble(),
+                                          min: 1,
+                                          max: 10,
+                                          divisions: 9,
+                                          label: haeufigkeit.toString(),
+                                          onChanged: (value) {
+                                            setStateDialog(() {
+                                              haeufigkeit = value.round();
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                      Text("$haeufigkeit"),
+                                    ],
+                                  ),
+                                  SizedBox(height: 16),
+                                  if (neuesBilder.isNotEmpty) ...[
+                                    Text('Hinzugefügte Bilder:', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    Container(
+                                      height: 100,
+                                      width: MediaQuery.of(context).size.width * 0.7,
+                                      child: ListView.builder(
+                                        scrollDirection: Axis.horizontal,
+                                        itemCount: neuesBilder.length,
+                                        itemBuilder: (context, imgIndex) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(right: 8.0),
+                                            child: Stack(
+                                              children: [
+                                                Image.memory(
+                                                  base64Decode(neuesBilder[imgIndex]),
+                                                  height: 100,
+                                                  width: 100,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                                Positioned(
+                                                  right: 0,
+                                                  top: 0,
+                                                  child: GestureDetector(
+                                                    onTap: () {
+                                                      setStateDialog(() {
+                                                        neuesBilder.removeAt(imgIndex);
+                                                      });
+                                                    },
+                                                    child: SizedBox(
+                                                      child: Icon(Icons.close, color: Colors.white, size: 20),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
                                         },
                                       ),
-                                    ),
-                                    Text("$staerke"),
+                                    )
                                   ],
-                                ),
-                                Row(
-                                  children: [
-                                    Text("Häufigkeit:"),
-                                    Expanded(
-                                      child: Slider(
-                                        value: haeufigkeit.toDouble(),
-                                        min: 1,
-                                        max: 10,
-                                        divisions: 9,
-                                        label: haeufigkeit.toString(),
-                                        onChanged: (value) {
-                                          setStateDialog(() {
-                                            haeufigkeit = value.round();
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    Text("$haeufigkeit"),
-                                  ],
-                                ),
-                              ],
+                                  ElevatedButton.icon(
+                                    icon: Icon(Icons.add_a_photo),
+                                    label: Text('Bild hinzufügen(Artzberichte/Fotos)'),
+                                    onPressed: () async {
+                                      final ImagePicker picker = ImagePicker();
+                                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                                      
+                                      if (image != null) {
+                                        final bytes = await image.readAsBytes();
+                                        String base64Image = base64Encode(bytes);
+                                        setStateDialog(() {
+                                          neuesBilder.add(base64Image);
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           actions: [
@@ -519,15 +766,24 @@ class _VerlaufPageState extends State<VerlaufPage> {
                             ),
                             TextButton(
                               onPressed: () {
-                                if (beschreibung.trim().isEmpty) return;
+                                if (beschreibung.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Bitte geben Sie eine Beschreibung ein')),
+                                  );
+                                  return;
+                                }
+
                                 setState(() {
-                                  eintraege.add({
+                                  final neuerEintrag = {
                                     "datum": "${DateTime.now().day}.${DateTime.now().month}.${DateTime.now().year}",
                                     "beschreibung": beschreibung,
                                     "staerke": staerke,
                                     "haeufigkeit": haeufigkeit,
-                                  });
-                                  _saveEntries(); // Speichert nach dem Hinzufügen
+                                    if (neuesBilder.isNotEmpty) "bilder": neuesBilder,
+                                  };
+                                  
+                                  eintraege.add(neuerEintrag);
+                                  _saveEntries(); 
                                 });
                                 Navigator.of(context).pop();
                               },
@@ -776,12 +1032,11 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
     super.initState();
     _authenticate().then((_) {
       if (_isAuthenticated) {
-        _loadData(); // Lade Daten nach erfolgreicher Authentifizierung
+        _loadData(); // 
       }
     });
   }
 
-  // Methode zum Laden der Daten aus SharedPreferences
   Future<void> _loadData() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -800,8 +1055,7 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
         angst = prefs.getBool('angst') ?? false;
         schlafprobleme = prefs.getBool('schlafprobleme') ?? false;
         mentaleNotizenController.text = prefs.getString('mentaleNotizen') ?? '';
-        
-        // Notfallkontakt Daten laden
+
         notfallKontaktNameController.text = prefs.getString('notfallKontaktName') ?? '';
         notfallKontaktTelefonController.text = prefs.getString('notfallKontaktTelefon') ?? '';
         notfallKontaktEmailController.text = prefs.getString('notfallKontaktEmail') ?? '';
@@ -816,7 +1070,7 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
     }
   }
 
-  // Methode zum Speichern der Daten in SharedPreferences
+
   Future<void> _saveData() async {
     try {
       final daten = Nutzerdaten(
@@ -875,12 +1129,8 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
     }
   }
   
-  // Methode zum Senden einer Notfall-E-Mail
   Future<void> _sendEmergencyEmail() async {
     try {
-      // Hier würde die E-Mail-Versand-Implementierung erfolgen
-      // Dafür benötigt man ein Package wie flutter_email_sender oder url_launcher
-      // Beispiel-Implementierung mit url_launcher:
       final Uri emailLaunchUri = Uri(
         scheme: 'mailto',
         path: notfallKontaktEmailController.text,
@@ -894,31 +1144,46 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
         },
       );
       
-      // Launch-Methode würde hier aufgerufen
-      // await launch(emailLaunchUri.toString());
-      
-      print("Notfall-E-Mail-Link generiert: $emailLaunchUri");
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      } else {
+        throw Exception('Could not launch $emailLaunchUri');
+      }
       
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Notfall-E-Mail würde gesendet werden an: ${notfallKontaktEmailController.text}')),
+        SnackBar(content: Text('Notfall-E-Mail wurde gesendet an: ${notfallKontaktEmailController.text}')),
       );
     } catch (e) {
-      print("Fehler beim Erstellen der Notfall-E-Mail: $e");
+      print("Fehler beim Senden der Notfall-E-Mail: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Erstellen der Notfall-E-Mail')),
+        SnackBar(content: Text('Fehler beim Senden der Notfall-E-Mail: $e')),
       );
     }
   }
 
   Future<void> _authenticate() async {
     try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final bool authRequired = prefs.getBool('authForPersonalPage') ?? true;
+      
+      if (!authRequired) {
+        setState(() {
+          _isAuthenticated = true;
+        });
+        return;
+      }
+      
+      final bool useOnlyScreenLock = prefs.getBool('useOnlyScreenLock') ?? false;
+      
       bool didAuthenticate = await auth.authenticate(
-        localizedReason: 'Bitte mit Fingerabdruck oder Gesicht entsperren',
-        options: const AuthenticationOptions(
+        localizedReason: 'Bitte entsperren, um persönliche Daten anzuzeigen',
+        options: AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: false,
+          useErrorDialogs: true,
         ),
       );
+      
       if (didAuthenticate) {
         setState(() {
           _isAuthenticated = true;
@@ -1136,7 +1401,7 @@ class _PersoenlichesPageState extends State<PersoenlichesPage> {
           SizedBox(height: 20),
           ElevatedButton(
             onPressed: () {
-              _saveData(); // Verwende die neue Speichermethode
+              _saveData(); 
             },
             child: Text('Alle Daten speichern'),
           ),
@@ -1156,6 +1421,63 @@ class EinstellungenPage extends StatefulWidget {
 
 class _EinstellungenPageState extends State<EinstellungenPage> {
   bool _isDeleting = false;
+  bool _authForPersonalPage = true; // Default on
+  bool _authForHistoryPage = false; // Default off
+  bool _useOnlyScreenLock = false; // Default off
+
+  final LocalAuthentication _auth = LocalAuthentication();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _authForPersonalPage = prefs.getBool('authForPersonalPage') ?? true;
+        _authForHistoryPage = prefs.getBool('authForHistoryPage') ?? false;
+        _useOnlyScreenLock = prefs.getBool('useOnlyScreenLock') ?? false;
+      });
+    } catch (e) {
+      print("Fehler beim Laden der Einstellungen: $e");
+    }
+  }
+
+  // Save authentication settings to SharedPreferences
+  Future<void> _saveSettings() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('authForPersonalPage', _authForPersonalPage);
+      await prefs.setBool('authForHistoryPage', _authForHistoryPage);
+      await prefs.setBool('useOnlyScreenLock', _useOnlyScreenLock);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Einstellungen gespeichert')),
+      );
+    } catch (e) {
+      print("Fehler beim Speichern der Einstellungen: $e");
+    }
+  }
+
+  Future<bool> _authenticateForSettings() async {
+    try {
+      bool didAuthenticate = await _auth.authenticate(
+        localizedReason: 'Bitte authentifiziere dich, um Sicherheitseinstellungen zu ändern',
+        options: AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: false,
+          useErrorDialogs: true,
+        ),
+      );
+      return didAuthenticate;
+    } catch (e) {
+      print("Fehler bei Authentifizierung: $e");
+      return false;
+    }
+  }
 
   Future<void> _deleteAllData() async {
     setState(() {
@@ -1164,7 +1486,7 @@ class _EinstellungenPageState extends State<EinstellungenPage> {
 
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      
+
       await prefs.remove('vorname');
       await prefs.remove('nachname');
       await prefs.remove('geschlecht');
@@ -1178,14 +1500,13 @@ class _EinstellungenPageState extends State<EinstellungenPage> {
       await prefs.remove('angst');
       await prefs.remove('schlafprobleme');
       await prefs.remove('mentaleNotizen');
-      
-      // Notfallkontakt Daten löschen
+      await prefs.setBool('isFirstStart', true);
+
       await prefs.remove('notfallKontaktName');
       await prefs.remove('notfallKontaktTelefon');
       await prefs.remove('notfallKontaktEmail');
       await prefs.remove('notfallKontaktBenachrichtigen');
-      
-      // Verlauf Einträge löschen
+
       await prefs.remove('verlauf_eintraege');
       
       await prefs.remove('organspendeFrontPath');
@@ -1226,7 +1547,7 @@ class _EinstellungenPageState extends State<EinstellungenPage> {
           title: Text('Alle Daten löschen?'),
           content: Text(
             'Diese Aktion löscht alle deine persönlichen Daten, Notfallkontakte und den Verlauf. '
-            '       Diese Aktion kann nicht rückgängig gemacht werden!',
+            'Diese Aktion kann nicht rückgängig gemacht werden!',
             style: TextStyle(color: Colors.red[700]),
           ),
           actions: <Widget>[
@@ -1249,63 +1570,140 @@ class _EinstellungenPageState extends State<EinstellungenPage> {
     );
   }
 
+  Future<void> _tryChangeSetting(Function changeFn) async {
+    bool ok = await _authenticateForSettings();
+    if (ok) {
+      changeFn();
+      _saveSettings();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Authentifizierung fehlgeschlagen')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Einstellungen', 
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: 40),
-          
-          // Datenschutz-Sektion
-          Text('Datenschutz und Privatsphäre', 
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16),
-          
-          // Button zum Löschen aller Daten
-          ElevatedButton.icon(
-            onPressed: _isDeleting ? null : _showDeleteConfirmationDialog,
-            icon: Icon(Icons.delete_forever, color: Colors.white),
-            label: _isDeleting 
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Einstellungen',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 30),
+
+            // Authentifizierungseinstellungen
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    Text(
+                      'Authentifizierung & Sicherheit',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 16),
+
+                    SwitchListTile(
+                      title: Text('Authentifizierung für persönliche Daten'),
+                      subtitle: Text('Geschützt mit Fingerabdruck, Gesichtserkennung oder PIN'),
+                      value: _authForPersonalPage,
+                      onChanged: (value) {
+                        _tryChangeSetting(() {
+                          setState(() {
+                            _authForPersonalPage = value;
+                          });
+                        });
+                      },
+                    ),
+
+                    SwitchListTile(
+                      title: Text('Authentifizierung für Verlauf'),
+                      subtitle: Text('Schütze deine Krankheitsgeschichte mit Biometrie oder PIN'),
+                      value: _authForHistoryPage,
+                      onChanged: (value) {
+                        _tryChangeSetting(() {
+                          setState(() {
+                            _authForHistoryPage = value;
+                          });
+                        });
+                      },
+                    ),
+
+                    SwitchListTile(
+                      title: Text('Nur PIN/Passwort verwenden'),
+                      subtitle: Text('Keine Biometrie (Fingerabdruck/Gesichtserkennung) verwenden'),
+                      value: _useOnlyScreenLock,
+                      onChanged: (value) {
+                        _tryChangeSetting(() {
+                          setState(() {
+                            _useOnlyScreenLock = value;
+                          });
+                        });
+                      },
+                    ),
+
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Hinweis: Die Authentifizierung erhöht die Sicherheit deiner persönlichen Gesundheitsdaten. '
+                        'Zum Ändern dieser Einstellungen ist eine Authentifizierung erforderlich.',
+                        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Text('Wird gelöscht...'),
                   ],
-                )
-              : Text('Alle gespeicherten Daten löschen'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
             ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Löscht alle persönlichen Daten, Notfallkontakte und Verlaufseinträge',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-          
-          Divider(height: 40),
-          
-          // Mehr Einstellungs-Optionen
-          // ...
-        ],
+
+            SizedBox(height: 30),
+
+            // Datenschutz-Sektion
+            Text('Datenschutz und Privatsphäre',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+
+            // Button zum Löschen aller Daten
+            ElevatedButton.icon(
+              onPressed: _isDeleting ? null : _showDeleteConfirmationDialog,
+              icon: Icon(Icons.delete_forever, color: Colors.white),
+              label: _isDeleting
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Wird gelöscht...'),
+                    ],
+                  )
+                : Text('Alle gespeicherten Daten löschen'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Löscht alle persönlichen Daten, Notfallkontakte und Verlaufseinträge. Die App muss danach neu eingerichtet werden. Gebe de deine Daten erneut ein.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1574,7 +1972,7 @@ class SetupWizard extends StatefulWidget {
 class _SetupWizardState extends State<SetupWizard> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = 6; // Increased from 5 to 6
+  final int _totalPages = 6;
   
   // Nutzerdaten
   String vorname = '';
@@ -1596,10 +1994,14 @@ class _SetupWizardState extends State<SetupWizard> {
   bool berechtigungBiometrie = false;
   String? organspendeFrontPath;
   String? organspendeBackPath;
+
+  // Controller für mentale Notizen
+  final TextEditingController mentaleNotizenController = TextEditingController();
   
   @override
   void dispose() {
     _pageController.dispose();
+    mentaleNotizenController.dispose();
     super.dispose();
   }
   
@@ -1616,7 +2018,6 @@ class _SetupWizardState extends State<SetupWizard> {
   }
   
   Future<void> _finishSetup() async {
-
     final daten = Nutzerdaten(
       vorname: vorname,
       nachname: nachname,
@@ -1630,13 +2031,31 @@ class _SetupWizardState extends State<SetupWizard> {
       depression: depression,
       angst: angst,
       schlafprobleme: schlafprobleme,
-      mentaleNotizen: mentaleNotizen,
+      mentaleNotizen: mentaleNotizenController.text,
     );
     
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('firstStart', false);
+    await prefs.setBool('isFirstStart', false); 
     
+    await prefs.setString('vorname', daten.vorname);
+    await prefs.setString('nachname', daten.nachname);
+    await prefs.setString('geschlecht', daten.geschlecht);
+    await prefs.setBool('istPrivatVersichert', daten.istPrivatVersichert);
+    await prefs.setString('krankenkasse', daten.krankenkasse);
+    await prefs.setString('groesse', daten.groesse);
+    await prefs.setString('gewicht', daten.gewicht);
+    await prefs.setString('blutgruppe', daten.blutgruppe);
+    await prefs.setString('allergien', daten.allergien);
+    await prefs.setBool('depression', daten.depression);
+    await prefs.setBool('angst', daten.angst);
+    await prefs.setBool('schlafprobleme', daten.schlafprobleme);
+    await prefs.setString('mentaleNotizen', daten.mentaleNotizen);
     
+    await prefs.setBool('authForPersonalPage', true);
+    await prefs.setBool('authForHistoryPage', false); 
+    await prefs.setBool('useOnlyScreenLock', false); 
+
+    print("Onboarding data saved: ${daten.vorname} ${daten.nachname}");
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => HomeWithBottomNav())
@@ -1845,26 +2264,28 @@ class _SetupWizardState extends State<SetupWizard> {
                 istPrivatVersichert = value;
               });
             },
-          ),
-          SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            decoration: InputDecoration(
-              labelText: 'Wähle deine Krankenkasse',
-              border: OutlineInputBorder(),
+          ), 
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: 'Wähle deine Krankenkasse',
+                border: OutlineInputBorder(),
+              ),
+              value: krankenkasse,
+              onChanged: (String? newValue) {
+                setState(() {
+                  krankenkasse = newValue!;
+                });
+              },
+              items: ['AOK', 'TK', 'Barmer', 'DAK', 'HKK', 'Privat', 'Andere']
+                  .map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
             ),
-            value: krankenkasse,
-            onChanged: (String? newValue) {
-              setState(() {
-                krankenkasse = newValue!;
-              });
-            },
-            items: ['AOK', 'TK', 'Barmer', 'DAK', 'HKK', 'Privat', 'Andere']
-                .map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
           ),
         ],
       ),
@@ -2032,16 +2453,16 @@ class _SetupWizardState extends State<SetupWizard> {
               });
             },
           ),
-          SizedBox(height: 16),
-          TextField(
-            decoration: InputDecoration(
-              labelText: 'Weitere Notizen zur mentalen Gesundheit',
-              border: OutlineInputBorder(),
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: mentaleNotizenController,
+              decoration: InputDecoration(labelText: 'Weitere Notizen zur mentalen Gesundheit'),
+              maxLines: 3,
+              onChanged: (value) {
+                mentaleNotizen = value;
+              },
             ),
-            onChanged: (value) {
-              mentaleNotizen = value;
-            },
-            maxLines: 3,
           ),
           SizedBox(height: 16),
           Text(
@@ -2387,7 +2808,6 @@ class _OrganspendeAusweisWidgetState extends State<OrganspendeAusweisWidget> {
   Future<bool> _isImageBlurry(String path) async {
     final inputImage = InputImage.fromFilePath(path);
     final blurDetector = GoogleMlKit.vision.imageLabeler();
-    // For simplicity, use text recognition as a proxy for readability
     final textDetector = GoogleMlKit.vision.textRecognizer();
     final result = await textDetector.processImage(inputImage);
     await textDetector.close();
