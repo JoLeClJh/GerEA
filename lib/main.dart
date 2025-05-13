@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_ml_kit/google_ml_kit.dart';
 import 'dart:io';
+import 'package:http/http.dart' as http;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -821,11 +822,61 @@ class _HomePageState extends State<HomePage> {
   late stt.SpeechToText _speech;
   bool _isListening = false;
   String _spokenText = '';
+  List<Map<String, dynamic>> _ninaWarnings = [];
+  bool _isLoadingWarnings = true;
+  String _warningError = '';
 
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
+    _fetchNinaWarnings();
+  }
+
+  Future<void> _fetchNinaWarnings() async {
+    setState(() {
+      _isLoadingWarnings = true;
+      _warningError = '';
+    });
+
+    try {
+      // Fetch warnings from NINA API
+      final response = await http.get(Uri.parse('https://warnung.bund.de/api31/warnings'));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+
+        List<Map<String, dynamic>> warnings = [];
+
+        for (var item in data) {
+          final info = item['info']?[0];
+          if (info != null) {
+            warnings.add({
+              'id': item['identifier'] ?? '',
+              'headline': info['headline'] ?? 'Unbekannte Warnung',
+              'severity': info['severity'] ?? 'Unbekannt',
+              'type': info['event'] ?? 'Unbekannt',
+              'sent': item['sent'] ?? '',
+            });
+          }
+        }
+
+        setState(() {
+          _ninaWarnings = warnings;
+          _isLoadingWarnings = false;
+        });
+      } else {
+        setState(() {
+          _warningError = 'Fehler beim Laden der Warnungen: HTTP ${response.statusCode}';
+          _isLoadingWarnings = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _warningError = 'Netzwerkfehler: $e';
+        _isLoadingWarnings = false;
+      });
+    }
   }
 
   void _listen() async {
@@ -849,6 +900,36 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  String _getSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'minor':
+        return 'Niedrig';
+      case 'moderate':
+        return 'Mittel';
+      case 'severe':
+        return 'Hoch';
+      case 'extreme':
+        return 'Extrem';
+      default:
+        return 'Unbekannt';
+    }
+  }
+
+  Color _getSeverityColorValue(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'minor':
+        return Colors.yellow.shade700;
+      case 'moderate':
+        return Colors.orange;
+      case 'severe':
+        return Colors.deepOrange;
+      case 'extreme':
+        return Colors.red;
+      default:
+        return Colors.blue;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -856,7 +937,173 @@ class _HomePageState extends State<HomePage> {
       children: [
         Column(
           children: [
-            SizedBox(height: 50),
+            SizedBox(height: 20),
+            // NINA Warnings Card
+            Card(
+              margin: EdgeInsets.all(16),
+              color: Colors.amber.shade50,
+              elevation: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Colors.amber.shade800),
+                        SizedBox(width: 8),
+                        Text(
+                          'NINA Warnungen',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.amber.shade800,
+                          ),
+                        ),
+                        Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.refresh, size: 20),
+                          onPressed: _fetchNinaWarnings,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 0, thickness: 1, color: Colors.amber.shade200),
+                  _isLoadingWarnings
+                      ? Container(
+                          height: 80,
+                          alignment: Alignment.center,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.amber.shade800),
+                          ),
+                        )
+                      : _warningError.isNotEmpty
+                          ? Container(
+                              height: 80,
+                              alignment: Alignment.center,
+                              child: Text(
+                                _warningError,
+                                style: TextStyle(fontSize: 14, color: Colors.red),
+                                textAlign: TextAlign.center,
+                              ),
+                            )
+                      : _ninaWarnings.isEmpty
+                          ? Container(
+                              height: 80,
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Keine aktuellen Warnungen',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            )
+                          : ListView.separated(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: _ninaWarnings.length > 3 ? 3 : _ninaWarnings.length,
+                              separatorBuilder: (context, index) => Divider(
+                                height: 1,
+                                thickness: 1,
+                                indent: 12,
+                                endIndent: 12,
+                                color: Colors.amber.shade100,
+                              ),
+                              itemBuilder: (context, index) {
+                                final warning = _ninaWarnings[index];
+                                final severity = warning['severity'] ?? 'Unbekannt';
+                                
+                                return ListTile(
+                                  leading: Icon(
+                                    Icons.notification_important,
+                                    color: _getSeverityColorValue(severity),
+                                  ),
+                                  title: Text(warning['headline'] ?? 'Unbekannte Warnung'),
+                                  subtitle: Row(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: _getSeverityColorValue(severity),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          _getSeverityColor(severity),
+                                          style: TextStyle(color: Colors.white, fontSize: 12),
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(warning['type'] ??'allgemein'),
+                                    ],                       ),
+                                  dense: true,
+                                  onTap: () {
+                                    // Show more details when tapped
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: Text(warning['headline'] ?? 'Warnung'),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Schweregrad: ${_getSeverityColor(severity)}'),
+                                            Text('Typ: ${warning['type'] ?? 'Allgemein'}'),
+                                            Text('Gesendet: ${warning['sent'] ?? 'Unbekannt'}'),
+                                            SizedBox(height: 8),
+                                            Text('Für weitere Details bitte die offizielle NINA-App öffnen'),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            child: Text('Schließen'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                  if (_ninaWarnings.length > 3)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                      child: TextButton(
+                        onPressed: () {
+                          // Show all warnings
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text('Alle Warnungen'),
+                              content: Container(
+                                width: double.maxFinite,
+                                child: ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: _ninaWarnings.length,
+                                  separatorBuilder: (context, index) => Divider(),
+                                  itemBuilder: (context, index) {
+                                    final warning = _ninaWarnings[index];
+                                    return ListTile(
+                                      title: Text(warning['headline'] ?? 'Unbekannte Warnung'),
+                                      subtitle: Text('${_getSeverityColor(warning['severity'] ?? '')} - ${warning['type'] ?? 'Allgemein'}'),
+                                    );
+                                  },
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: Text('Schließen'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        child: Text('Alle ${_ninaWarnings.length} Warnungen anzeigen'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: _listen,
               style: ElevatedButton.styleFrom(
